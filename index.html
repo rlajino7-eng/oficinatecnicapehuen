@@ -1,49 +1,58 @@
-<!-- Filtro de Categorías -->
-<select id="filtroCategoria" onchange="filtrarArchivos()">
-    <option value="TODOS">Todas las categorías</option>
-    <option value="PLANO">Planos</option>
-    <option value="INFORME">Informes</option>
-    <option value="GENERAL">General</option>
-</select>
-
-<!-- Tabla de archivos -->
-<table id="tablaArchivos">
-    <thead>
-        <tr>
-            <th>Categoría</th>
-            <th>Nombre</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody id="listaArchivos">
-        <!-- Aquí se cargarán los archivos automáticamente -->
-    </tbody>
-</table>
-
-<script>
-async function cargarArchivos() {
-    const res = await fetch('/api/archivos');
-    const archivos = await res.json();
-    const lista = document.getElementById('listaArchivos');
-    lista.innerHTML = '';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Oficina Técnica Pehuén</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .btn-del { background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Repositorio Técnico Pehuén</h1>
     
-    archivos.forEach(a => {
-        lista.innerHTML += `
-            <tr>
-                <td>${a.categoria}</td>
-                <td><a href="${a.webViewLink}" target="_blank">${a.name}</a></td>
-                <td>
-                    <button onclick="reemplazarArchivo('${a.id}')" style="background:blue; color:white;">Actualizar</button>
-                    <button onclick="eliminarArchivo('${a.id}')" style="background:red; color:white;">Eliminar</button>
-                </td>
-            </tr>`;
-    });
-}
+    <select id="filtro" onchange="cargarArchivos()">
+        <option value="TODOS">Todas las categorías</option>
+        <option value="PLANO">Planos</option>
+        <option value="INFORME">Informes</option>
+    </select>
 
-async function eliminarArchivo(id) {
-    if(confirm('¿Seguro que deseas eliminar este archivo de Drive?')) {
-        await fetch(`/api/archivos/${id}`, { method: 'DELETE' });
-        cargarArchivos();
-    }
-}
-</script>
+    <table>
+        <thead>
+            <tr><th>Categoría</th><th>Nombre</th><th>Acciones</th></tr>
+        </thead>
+        <tbody id="listaArchivos"></tbody>
+    </table>
+
+    <script>
+        async function cargarArchivos() {
+            const res = await fetch('/api/archivos');
+            const archivos = await res.json();
+            const filtro = document.getElementById('filtro').value;
+            const lista = document.getElementById('listaArchivos');
+            lista.innerHTML = '';
+            
+            archivos.forEach(a => {
+                if(filtro === 'TODOS' || a.categoria === filtro) {
+                    lista.innerHTML += `<tr>
+                        <td>${a.categoria}</td>
+                        <td><a href="${a.webViewLink}" target="_blank">${a.name}</a></td>
+                        <td><button class="btn-del" onclick="eliminar('${a.id}')">Eliminar</button></td>
+                    </tr>`;
+                }
+            });
+        }
+
+        async function eliminar(id) {
+            if(confirm('¿Eliminar este archivo?')) {
+                await fetch(`/api/archivos/${id}`, { method: 'DELETE' });
+                cargarArchivos();
+            }
+        }
+
+        cargarArchivos(); // Cargar al abrir
+    </script>
+</body>
+</html>
