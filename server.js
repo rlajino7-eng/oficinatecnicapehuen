@@ -6,7 +6,6 @@ const path = require('path');
 const app = express();
 
 app.use(express.json());
-// Sirve los archivos desde la raíz principal (como lo configuramos)
 app.use(express.static(__dirname));
 
 // ---------------------------------------------------------
@@ -20,7 +19,12 @@ const auth = new google.auth.GoogleAuth({
 });
 
 const drive = google.drive({ version: 'v3', auth });
-const upload = multer();
+
+// Configuración explícita de memoria temporal para evitar que se pegue
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 } // Límite de 25 MB por archivo
+});
 
 // ---------------------------------------------------------
 // 2. BASE DE DATOS DE USUARIOS Y CONTRASEÑAS
@@ -77,7 +81,8 @@ app.get('/api/archivos', async (req, res) => {
     const response = await drive.files.list({
       q: `'${FOLDER_ID}' in parents and trashed = false`,
       fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime)',
-      orderBy: 'createdTime desc'
+      orderBy: 'createdTime desc',
+      supportsAllDrives: true
     });
     res.json(response.data.files);
   } catch (error) {
@@ -87,6 +92,10 @@ app.get('/api/archivos', async (req, res) => {
 
 app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No se recibió ningún archivo.' });
+    }
+
     const bufferStream = new stream.PassThrough();
     bufferStream.end(req.file.buffer);
 
@@ -102,12 +111,17 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
     const file = await drive.files.create({
       resource: fileMetadata,
       media: media,
-      fields: 'id, name, webViewLink'
+      fields: 'id, name, webViewLink',
+      supportsAllDrives: true
     });
 
     res.json({ success: true, file: file.data });
   } catch (error) {
-    res.status(500).json({ error: 'Error al subir documento al servidor Drive' });
+    console.error('Error Drive:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Error al subir documento al servidor Drive' 
+    });
   }
 });
 
