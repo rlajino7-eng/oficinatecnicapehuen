@@ -1,6 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     verificarSesion();
 
+    // TEMPORIZADOR: Actualiza la tabla automáticamente cada 30 minutos (1800000 milisegundos)
+    setInterval(() => {
+        const userGuardado = localStorage.getItem('pehuen_user');
+        if (userGuardado) {
+            cargarArchivosDrive();
+        }
+    }, 30 * 60 * 1000);
+
     // 1. INICIAR SESIÓN
     document.getElementById('formLogin').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -19,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.success) {
-                // Guardamos el usuario en el navegador
                 localStorage.setItem('pehuen_user', JSON.stringify(data.usuario));
                 verificarSesion();
             } else {
@@ -45,7 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         formData.append('archivo', input.files[0]);
 
-        document.getElementById('nombreSeleccionado').textContent = "Subiendo a Drive...";
+        const labelEstado = document.getElementById('nombreSeleccionado');
+        labelEstado.textContent = "Subiendo a Drive... (Esperando servidor)";
 
         try {
             const response = await fetch('/api/subir', {
@@ -53,14 +61,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
             const data = await response.json();
+
             if (data.success) {
-                alert('Documento guardado con éxito en el Drive de Oficina Técnica');
+                alert('¡Documento guardado con éxito en el Drive de Oficina Técnica Pehuén!');
                 input.value = '';
-                document.getElementById('nombreSeleccionado').textContent = "Ningún archivo...";
+                labelEstado.textContent = "Ningún archivo...";
                 cargarArchivosDrive();
+            } else {
+                alert('No se pudo subir el archivo: ' + (data.error || 'Error desconocido'));
+                labelEstado.textContent = "Ningún archivo...";
             }
         } catch (error) {
-            alert('Error al subir el archivo.');
+            alert('Error al enviar el documento. Verifica la conexión del servidor.');
+            labelEstado.textContent = "Ningún archivo...";
         }
     });
 
@@ -81,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.success) {
             renderUsuarios(data.usuarios);
             document.getElementById('formUsuario').reset();
-            document.getElementById('passUser').value = "pehuen123"; // valor por defecto
+            document.getElementById('passUser').value = "pehuen123";
         }
     });
 });
@@ -93,26 +106,21 @@ function verificarSesion() {
     const mainApp = document.getElementById('mainApp');
 
     if (!userGuardado) {
-        // No ha iniciado sesión -> Mostrar login, ocultar sistema
         loginScreen.style.display = 'flex';
         mainApp.style.display = 'none';
     } else {
-        // Usuario conectado -> Ocultar login, mostrar sistema de archivos
         const usuario = JSON.parse(userGuardado);
         loginScreen.style.display = 'none';
         mainApp.style.display = 'block';
 
-        // Poner su rol en la barra superior
         document.getElementById('badgeUsuario').textContent = `${usuario.nombre} (${usuario.rol.toUpperCase()})`;
 
-        // Si es el ADMINISTRADOR, mostramos el botón de gestión de usuarios
         if (usuario.rol === 'admin') {
             document.getElementById('btnAdmin').style.display = 'inline-block';
         } else {
             document.getElementById('btnAdmin').style.display = 'none';
         }
 
-        // Cargar las tablas
         cargarArchivosDrive();
         cargarUsuarios();
     }
