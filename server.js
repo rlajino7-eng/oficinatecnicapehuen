@@ -6,12 +6,12 @@ const path = require('path');
 const app = express();
 
 app.use(express.json());
+// Sirve los archivos desde la raíz principal (como lo configuramos)
 app.use(express.static(__dirname));
 
 // ---------------------------------------------------------
 // 1. CONFIGURACIÓN GOOGLE DRIVE API
 // ---------------------------------------------------------
-// En Render pegarás tu JSON de Google y el ID de tu carpeta en las Variables de Entorno
 const FOLDER_ID = process.env.DRIVE_FOLDER_ID || 'TU_ID_DE_CARPETA_AQUI';
 
 const auth = new google.auth.GoogleAuth({
@@ -23,23 +23,43 @@ const drive = google.drive({ version: 'v3', auth });
 const upload = multer();
 
 // ---------------------------------------------------------
-// 2. BASE DE DATOS LIGERA DE USUARIOS (EN MEMORIA/RENDER)
+// 2. BASE DE DATOS DE USUARIOS Y CONTRASEÑAS
 // ---------------------------------------------------------
 let usuariosAutorizados = [
-  { id: 1, email: 'admin@pehuen.cl', rol: 'admin', nombre: 'Admin Técnico' },
-  { id: 2, email: 'ingeniero1@pehuen.cl', rol: 'ingeniero', nombre: 'Ingeniero Montaje' }
+  { id: 1, email: 'admin@pehuen.cl', password: 'Pehuen2026*', rol: 'admin', nombre: 'Admin Técnico' },
+  { id: 2, email: 'ingeniero1@pehuen.cl', password: 'pehuen123', rol: 'ingeniero', nombre: 'Ingeniero Montaje' }
 ];
 
 // ---------------------------------------------------------
-// 3. ENDPOINTS PARA ADMINISTRAR USUARIOS (PANEL ADMIN)
+// 3. ENDPOINT DE INICIO DE SESIÓN (LOGIN)
+// ---------------------------------------------------------
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+  const usuario = usuariosAutorizados.find(u => u.email === email && u.password === password);
+
+  if (usuario) {
+    res.json({ success: true, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
+  } else {
+    res.status(401).json({ success: false, error: 'Correo o contraseña incorrectos' });
+  }
+});
+
+// ---------------------------------------------------------
+// 4. ENDPOINTS PARA ADMINISTRAR USUARIOS
 // ---------------------------------------------------------
 app.get('/api/usuarios', (req, res) => {
   res.json(usuariosAutorizados);
 });
 
 app.post('/api/usuarios', (req, res) => {
-  const { nombre, email, rol } = req.body;
-  const nuevoUsuario = { id: Date.now(), nombre, email, rol: rol || 'ingeniero' };
+  const { nombre, email, rol, password } = req.body;
+  const nuevoUsuario = { 
+    id: Date.now(), 
+    nombre, 
+    email, 
+    password: password || 'pehuen123', 
+    rol: rol || 'ingeniero' 
+  };
   usuariosAutorizados.push(nuevoUsuario);
   res.json({ success: true, usuarios: usuariosAutorizados });
 });
@@ -50,9 +70,8 @@ app.delete('/api/usuarios/:id', (req, res) => {
 });
 
 // ---------------------------------------------------------
-// 4. ENDPOINTS GOOGLE DRIVE (LISTAR Y SUBIR ARCHIVOS)
+// 5. ENDPOINTS GOOGLE DRIVE (LISTAR Y SUBIR ARCHIVOS)
 // ---------------------------------------------------------
-// Listar archivos de la carpeta de la Oficina Técnica
 app.get('/api/archivos', async (req, res) => {
   try {
     const response = await drive.files.list({
@@ -66,7 +85,6 @@ app.get('/api/archivos', async (req, res) => {
   }
 });
 
-// Subir documento (Word, Excel, PDF) directo a la carpeta en Drive
 app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   try {
     const bufferStream = new stream.PassThrough();
