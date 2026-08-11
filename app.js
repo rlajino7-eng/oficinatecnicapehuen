@@ -1,14 +1,42 @@
 document.addEventListener('DOMContentLoaded', () => {
-    cargarArchivosDrive();
-    cargarUsuarios();
+    verificarSesion();
 
-    // Input de selección para cambiar texto visual
+    // 1. INICIAR SESIÓN
+    document.getElementById('formLogin').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('emailLogin').value;
+        const password = document.getElementById('passLogin').value;
+        const errorMsg = document.getElementById('loginError');
+
+        errorMsg.textContent = "";
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Guardamos el usuario en el navegador
+                localStorage.setItem('pehuen_user', JSON.stringify(data.usuario));
+                verificarSesion();
+            } else {
+                errorMsg.textContent = data.error;
+            }
+        } catch (e) {
+            errorMsg.textContent = "Error al intentar conectar con el servidor.";
+        }
+    });
+
+    // 2. INPUT DE SELECCIÓN PARA SUBIR ARCHIVOS
     document.getElementById('archivoInput').addEventListener('change', (e) => {
         const nombre = e.target.files[0] ? e.target.files[0].name : "Ningún archivo...";
         document.getElementById('nombreSeleccionado').textContent = nombre;
     });
 
-    // Subir archivo a la API (y por tanto a Google Drive)
+    // 3. SUBIR ARCHIVO A DRIVE
     document.getElementById('formSubir').addEventListener('submit', async (e) => {
         e.preventDefault();
         const input = document.getElementById('archivoInput');
@@ -36,27 +64,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Agregar usuario al panel Admin
+    // 4. AGREGAR NUEVO TRABAJADOR / USUARIO
     document.getElementById('formUsuario').addEventListener('submit', async (e) => {
         e.preventDefault();
         const nombre = document.getElementById('nombreUser').value;
         const email = document.getElementById('emailUser').value;
+        const password = document.getElementById('passUser').value;
         const rol = document.getElementById('rolUser').value;
 
         const res = await fetch('/api/usuarios', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, email, rol })
+            body: JSON.stringify({ nombre, email, password, rol })
         });
         const data = await res.json();
         if (data.success) {
             renderUsuarios(data.usuarios);
             document.getElementById('formUsuario').reset();
+            document.getElementById('passUser').value = "pehuen123"; // valor por defecto
         }
     });
 });
 
-// Cargar tabla de Google Drive
+// VERIFICA SI HAY UN USUARIO CONECTADO
+function verificarSesion() {
+    const userGuardado = localStorage.getItem('pehuen_user');
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+
+    if (!userGuardado) {
+        // No ha iniciado sesión -> Mostrar login, ocultar sistema
+        loginScreen.style.display = 'flex';
+        mainApp.style.display = 'none';
+    } else {
+        // Usuario conectado -> Ocultar login, mostrar sistema de archivos
+        const usuario = JSON.parse(userGuardado);
+        loginScreen.style.display = 'none';
+        mainApp.style.display = 'block';
+
+        // Poner su rol en la barra superior
+        document.getElementById('badgeUsuario').textContent = `${usuario.nombre} (${usuario.rol.toUpperCase()})`;
+
+        // Si es el ADMINISTRADOR, mostramos el botón de gestión de usuarios
+        if (usuario.rol === 'admin') {
+            document.getElementById('btnAdmin').style.display = 'inline-block';
+        } else {
+            document.getElementById('btnAdmin').style.display = 'none';
+        }
+
+        // Cargar las tablas
+        cargarArchivosDrive();
+        cargarUsuarios();
+    }
+}
+
+// CERRAR SESIÓN
+function cerrarSesion() {
+    localStorage.removeItem('pehuen_user');
+    verificarSesion();
+}
+
+// CARGAR ARCHIVOS DESDE GOOGLE DRIVE
 async function cargarArchivosDrive() {
     const tbody = document.getElementById('listaArchivos');
     tbody.innerHTML = '<tr><td colspan="4">Consultando servidor Google Drive Pehuén...</td></tr>';
