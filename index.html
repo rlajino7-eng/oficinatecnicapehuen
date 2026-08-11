@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oficina Técnica | Pehuén Montaje y Mantención</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- BARRA SUPERIOR INDUSTRIAL -->
+    <header class="header-tecnico">
+        <div class="logo-box">
+            <img src="logo.png" alt="Pehuén Montaje y Mantención" class="logo">
+            <div class="header-divider"></div>
+            <div>
+                <h1>OFICINA TÉCNICA DOCUMENTAL</h1>
+                <span class="sub-badge">REPOSITORIO EN INGENIERÍA Y MONTAJE</span>
+            </div>
+        </div>
+        <div class="admin-profile">
+            <span class="badge-admin">ADMINISTRADOR</span>
+            <button class="btn-admin" onclick="toggleAdminModal()">⚙ Gestión de Usuarios</button>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- BARRA DE ACCIONES TÉCNICAS -->
+        <section class="toolbar">
+            <div class="status-indicator">
+                <span class="pulse-green"></span>
+                <strong>Conectado a Google Drive Corporativo</strong>
+            </div>
+            <form id="formSubir" class="upload-area">
+                <label for="archivoInput" class="btn-select">📁 Seleccionar Documento (Excel/Word/PDF)</label>
+                <input type="file" id="archivoInput" required style="display: none;">
+                <span id="nombreSeleccionado" class="file-name">Ningún archivo...</span>
+                <button type="submit" class="btn-upload">⬆ Subir a Drive</button>
+            </form>
+        </section>
+
+        <!-- TABLA DE DOCUMENTOS EN DRIVE -->
+        <section class="table-container">
+            <table class="tech-table">
+                <thead>
+                    <tr>
+                        <th>TIPO</th>
+                        <th>NOMBRE DEL ARCHIVO / DOCUMENTO TÉCNICO</th>
+                        <th>FECHA REGISTRO</th>
+                        <th>ACCIONES CORPORATIVAS</th>
+                    </tr>
+                </thead>
+                <tbody id="listaArchivos">
+                    <tr><td colspan="4" class="loading">Cargando repositorio de ingeniería...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <!-- MODAL DE ADMINISTRACIÓN DE USUARIOS -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Gestión de Accesos - Oficina Técnica Pehuén</h2>
+                <button class="close-btn" onclick="toggleAdminModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="formUsuario" class="form-user">
+                    <input type="text" id="nombreUser" placeholder="Nombre del Ingeniero" required>
+                    <input type="email" id="emailUser" placeholder="correo@pehuen.cl" required>
+                    <select id="rolUser">
+                        <option value="ingeniero">Ingeniero (Lectura/Subida)</option>
+                        <option value="admin">Administrador Técnico</option>
+                    </select>
+                    <button type="submit" class="btn-add-user">+ Autorizar Acceso</button>
+                </form>
+
+                <table class="tech-table users-table">
+                    <thead>
+                        <tr><th>NOMBRE</th><th>CORREO</th><th>ROL</th><th>ACCIONES</th></tr>
+                    </thead>
+                    <tbody id="listaUsuarios"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
