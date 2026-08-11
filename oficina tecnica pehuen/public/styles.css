@@ -1,0 +1,147 @@
+:root {
+    --bg-tech: #F4F6F9;
+    --dark-charcoal: #1A1E23;
+    --pehuen-green: #009E4B;
+    --pehuen-green-hover: #00803C;
+    --steel-border: #D1D9E0;
+    --text-main: #2A313C;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+body { background-color: var(--bg-tech); color: var(--text-main); }
+
+/* HEADER TÉCNICO */
+.header-tecnico {
+    background-color: var(--dark-charcoal);
+    padding: 15px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 4px solid var(--pehuen-green);
+}
+.logo-box { display: flex; align-items: center; gap: 20px; }
+.logo { height: 50px; }
+.header-divider { width: 2px; height: 45px; background: #3C4450; }
+.header-tecnico h1 {
+    color: white;
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 1.3rem;
+    letter-spacing: 1px;
+}
+.sub-badge { color: #A0AAB5; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px; }
+
+/* PERFIL ADMINISTRADOR */
+.admin-profile { display: flex; align-items: center; gap: 15px; }
+.badge-admin {
+    background-color: #2D3743;
+    color: #48E591;
+    border: 1px solid var(--pehuen-green);
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+.btn-admin {
+    background: transparent;
+    color: white;
+    border: 1px solid #6C7A89;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+.btn-admin:hover { border-color: var(--pehuen-green); color: var(--pehuen-green); }
+
+/* DASHBOARD & HERRAMIENTAS */
+.dashboard { max-width: 1300px; margin: 30px auto; padding: 0 20px; }
+.toolbar {
+    background: white;
+    padding: 20px;
+    border: 1px solid var(--steel-border);
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+.status-indicator { display: flex; align-items: center; gap: 10px; color: #4A5568; font-size: 0.9rem; }
+.pulse-green {
+    width: 10px; height: 10px;
+    background-color: var(--pehuen-green);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(0, 158, 75, 0.2);
+}
+.upload-area { display: flex; align-items: center; gap: 12px; }
+.btn-select {
+    background: #EDF2F7;
+    border: 1px dashed #A0AEC0;
+    padding: 10px 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+.file-name { font-size: 0.85rem; color: #718096; max-width: 200px; overflow: hidden; }
+.btn-upload {
+    background: var(--pehuen-green);
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-upload:hover { background: var(--pehuen-green-hover); }
+
+/* TABLAS INDUSTRIALES */
+.table-container {
+    background: white;
+    border: 1px solid var(--steel-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.tech-table { width: 100%; border-collapse: collapse; text-align: left; }
+.tech-table th {
+    background: var(--dark-charcoal);
+    color: white;
+    padding: 14px 20px;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+.tech-table td { padding: 15px 20px; border-bottom: 1px solid #EDF2F7; font-size: 0.9rem; }
+.tech-table tr:hover { background-color: #F8FAFC; }
+.btn-view {
+    background: #E2E8F0;
+    color: var(--dark-charcoal);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+.btn-view:hover { background: var(--pehuen-green); color: white; }
+
+/* MODAL DE ADMINISTRACIÓN */
+.modal {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(26, 30, 35, 0.8); align-items: center; justify-content: center;
+}
+.modal-content {
+    background: white; width: 700px; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+.modal-header {
+    background: var(--dark-charcoal); color: white; padding: 20px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.close-btn { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+.modal-body { padding: 25px; }
+.form-user { display: flex; gap: 10px; margin-bottom: 25px; }
+.form-user input, .form-user select {
+    padding: 10px; border: 1px solid var(--steel-border); border-radius: 4px; flex: 1;
+}
+.btn-add-user {
+    background: var(--pehuen-green); color: white; border: none;
+    padding: 10px 15px; border-radius: 4px; font-weight: 600; cursor: pointer;
+}
