@@ -1,58 +1,43 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Oficina Técnica Pehuén</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        .btn-del { background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; }
-    </style>
-</head>
-<body>
-    <h1>Repositorio Técnico Pehuén</h1>
+<!-- ... (Mantén todo tu código anterior igual hasta la sección de la tabla) ... -->
+
+<!-- MODIFICACIÓN: AGREGAR FILTRO DE CATEGORÍAS ANTES DE LA TABLA -->
+<section class="toolbar">
+    <div class="status-indicator">
+        <span class="pulse-green"></span>
+        <strong>Conectado a Google Drive Corporativo</strong>
+    </div>
     
-    <select id="filtro" onchange="cargarArchivos()">
+    <!-- Filtro -->
+    <select id="filtroCategoria" onchange="renderizarTabla()">
         <option value="TODOS">Todas las categorías</option>
         <option value="PLANO">Planos</option>
         <option value="INFORME">Informes</option>
+        <option value="GENERAL">General</option>
     </select>
 
-    <table>
+    <form id="formSubir" class="upload-area">
+        <label for="archivoInput" class="btn-select">📁 Seleccionar Documento</label>
+        <input type="file" id="archivoInput" required style="display: none;">
+        <span id="nombreSeleccionado" class="file-name">Ningún archivo...</span>
+        <button type="submit" class="btn-upload">⬆ Subir a Drive</button>
+    </form>
+</section>
+
+<!-- TABLA DE DOCUMENTOS (ACTUALIZADA) -->
+<section class="table-container">
+    <table class="tech-table">
         <thead>
-            <tr><th>Categoría</th><th>Nombre</th><th>Acciones</th></tr>
+            <tr>
+                <th>CATEGORÍA</th>
+                <th>NOMBRE DEL ARCHIVO / DOCUMENTO TÉCNICO</th>
+                <th>FECHA REGISTRO</th>
+                <th>ACCIONES CORPORATIVAS</th>
+            </tr>
         </thead>
-        <tbody id="listaArchivos"></tbody>
+        <tbody id="listaArchivos">
+            <!-- Los botones de eliminar/actualizar aparecerán aquí -->
+        </tbody>
     </table>
+</section>
 
-    <script>
-        async function cargarArchivos() {
-            const res = await fetch('/api/archivos');
-            const archivos = await res.json();
-            const filtro = document.getElementById('filtro').value;
-            const lista = document.getElementById('listaArchivos');
-            lista.innerHTML = '';
-            
-            archivos.forEach(a => {
-                if(filtro === 'TODOS' || a.categoria === filtro) {
-                    lista.innerHTML += `<tr>
-                        <td>${a.categoria}</td>
-                        <td><a href="${a.webViewLink}" target="_blank">${a.name}</a></td>
-                        <td><button class="btn-del" onclick="eliminar('${a.id}')">Eliminar</button></td>
-                    </tr>`;
-                }
-            });
-        }
-
-        async function eliminar(id) {
-            if(confirm('¿Eliminar este archivo?')) {
-                await fetch(`/api/archivos/${id}`, { method: 'DELETE' });
-                cargarArchivos();
-            }
-        }
-
-        cargarArchivos(); // Cargar al abrir
-    </script>
-</body>
-</html>
+<!-- ... (Mantén el resto de tu código igual: Modal, Scripts, etc.) ... -->
