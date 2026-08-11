@@ -10,7 +10,75 @@
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
 body { background-color: var(--bg-tech); color: var(--text-main); }
 
-/* HEADER TÉCNICO */
+/* --- PANTALLA DE LOGIN --- */
+.login-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1A1E23 0%, #2D3743 100%);
+}
+.login-card {
+    background: white;
+    width: 100%;
+    max-width: 420px;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+    text-align: center;
+    border-top: 5px solid var(--pehuen-green);
+}
+.login-logo {
+    max-height: 70px;
+    margin-bottom: 20px;
+}
+.login-card h2 {
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 1.4rem;
+    color: var(--dark-charcoal);
+    margin-bottom: 5px;
+}
+.login-subtitle {
+    font-size: 0.75rem;
+    color: #718096;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 25px;
+}
+.login-form {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    gap: 8px;
+}
+.login-form label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4A5568;
+}
+.login-form input {
+    padding: 12px;
+    border: 1px solid var(--steel-border);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+}
+.btn-login {
+    background: var(--pehuen-green);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.2s;
+}
+.btn-login:hover { background: var(--pehuen-green-hover); }
+.error-msg { color: #E53E3E; font-size: 0.85rem; text-align: center; min-height: 18px; font-weight: 500; }
+
+/* --- HEADER TÉCNICO --- */
 .header-tecnico {
     background-color: var(--dark-charcoal);
     padding: 15px 40px;
@@ -30,8 +98,8 @@ body { background-color: var(--bg-tech); color: var(--text-main); }
 }
 .sub-badge { color: #A0AAB5; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px; }
 
-/* PERFIL ADMINISTRADOR */
-.admin-profile { display: flex; align-items: center; gap: 15px; }
+/* PERFIL Y BOTONES DEL HEADER */
+.admin-profile { display: flex; align-items: center; gap: 12px; }
 .badge-admin {
     background-color: #2D3743;
     color: #48E591;
@@ -42,83 +110,58 @@ body { background-color: var(--bg-tech); color: var(--text-main); }
     font-weight: bold;
 }
 .btn-admin {
-    background: transparent;
-    color: white;
-    border: 1px solid #6C7A89;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: all 0.2s;
+    background: transparent; color: white; border: 1px solid #6C7A89;
+    padding: 8px 16px; border-radius: 4px; cursor: pointer;
+    font-weight: 500; transition: all 0.2s;
 }
 .btn-admin:hover { border-color: var(--pehuen-green); color: var(--pehuen-green); }
+.btn-logout {
+    background: #E53E3E; color: white; border: none;
+    padding: 8px 14px; border-radius: 4px; cursor: pointer;
+    font-weight: 600; font-size: 0.8rem;
+}
+.btn-logout:hover { background: #C53030; }
 
 /* DASHBOARD & HERRAMIENTAS */
 .dashboard { max-width: 1300px; margin: 30px auto; padding: 0 20px; }
 .toolbar {
-    background: white;
-    padding: 20px;
-    border: 1px solid var(--steel-border);
-    border-radius: 6px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    background: white; padding: 20px; border: 1px solid var(--steel-border);
+    border-radius: 6px; display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
 .status-indicator { display: flex; align-items: center; gap: 10px; color: #4A5568; font-size: 0.9rem; }
 .pulse-green {
-    width: 10px; height: 10px;
-    background-color: var(--pehuen-green);
-    border-radius: 50%;
-    box-shadow: 0 0 0 3px rgba(0, 158, 75, 0.2);
+    width: 10px; height: 10px; background-color: var(--pehuen-green);
+    border-radius: 50%; box-shadow: 0 0 0 3px rgba(0, 158, 75, 0.2);
 }
 .upload-area { display: flex; align-items: center; gap: 12px; }
 .btn-select {
-    background: #EDF2F7;
-    border: 1px dashed #A0AEC0;
-    padding: 10px 18px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
+    background: #EDF2F7; border: 1px dashed #A0AEC0;
+    padding: 10px 18px; border-radius: 4px; cursor: pointer; font-weight: 500;
 }
 .file-name { font-size: 0.85rem; color: #718096; max-width: 200px; overflow: hidden; }
 .btn-upload {
-    background: var(--pehuen-green);
-    color: white;
-    border: none;
-    padding: 10px 22px;
-    border-radius: 4px;
-    font-weight: 600;
-    cursor: pointer;
+    background: var(--pehuen-green); color: white; border: none;
+    padding: 10px 22px; border-radius: 4px; font-weight: 600; cursor: pointer;
 }
 .btn-upload:hover { background: var(--pehuen-green-hover); }
 
 /* TABLAS INDUSTRIALES */
 .table-container {
-    background: white;
-    border: 1px solid var(--steel-border);
-    border-radius: 6px;
-    overflow: hidden;
+    background: white; border: 1px solid var(--steel-border);
+    border-radius: 6px; overflow: hidden;
 }
 .tech-table { width: 100%; border-collapse: collapse; text-align: left; }
 .tech-table th {
-    background: var(--dark-charcoal);
-    color: white;
-    padding: 14px 20px;
-    font-size: 0.8rem;
-    letter-spacing: 1px;
+    background: var(--dark-charcoal); color: white;
+    padding: 14px 20px; font-size: 0.8rem; letter-spacing: 1px;
 }
 .tech-table td { padding: 15px 20px; border-bottom: 1px solid #EDF2F7; font-size: 0.9rem; }
 .tech-table tr:hover { background-color: #F8FAFC; }
 .btn-view {
-    background: #E2E8F0;
-    color: var(--dark-charcoal);
-    text-decoration: none;
-    padding: 6px 14px;
-    border-radius: 4px;
-    font-weight: 600;
-    font-size: 0.8rem;
+    background: #E2E8F0; color: var(--dark-charcoal);
+    text-decoration: none; padding: 6px 14px; border-radius: 4px;
+    font-weight: 600; font-size: 0.8rem;
 }
 .btn-view:hover { background: var(--pehuen-green); color: white; }
 
@@ -128,7 +171,7 @@ body { background-color: var(--bg-tech); color: var(--text-main); }
     background: rgba(26, 30, 35, 0.8); align-items: center; justify-content: center;
 }
 .modal-content {
-    background: white; width: 700px; border-radius: 8px; overflow: hidden;
+    background: white; width: 750px; border-radius: 8px; overflow: hidden;
     box-shadow: 0 10px 25px rgba(0,0,0,0.2);
 }
 .modal-header {
@@ -137,9 +180,9 @@ body { background-color: var(--bg-tech); color: var(--text-main); }
 }
 .close-btn { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
 .modal-body { padding: 25px; }
-.form-user { display: flex; gap: 10px; margin-bottom: 25px; }
+.form-user { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
 .form-user input, .form-user select {
-    padding: 10px; border: 1px solid var(--steel-border); border-radius: 4px; flex: 1;
+    padding: 10px; border: 1px solid var(--steel-border); border-radius: 4px; flex: 1; min-width: 130px;
 }
 .btn-add-user {
     background: var(--pehuen-green); color: white; border: none;
