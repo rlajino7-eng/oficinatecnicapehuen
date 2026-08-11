@@ -9,21 +9,25 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // ---------------------------------------------------------
-// 1. CONFIGURACIÓN GOOGLE DRIVE API
+// 1. CONFIGURACIÓN GOOGLE DRIVE API (OAUTH2)
 // ---------------------------------------------------------
-const FOLDER_ID = process.env.DRIVE_FOLDER_ID || 'TU_ID_DE_CARPETA_AQUI';
+const FOLDER_ID = process.env.DRIVE_FOLDER_ID || '';
 
-const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
-  scopes: ['https://www.googleapis.com/auth/drive']
+const oauth2Client = new google.auth.OAuth2(
+  process.env.CLIENT_ID,
+  process.env.CLIENT_SECRET,
+  'https://developers.google.com/oauthplayground'
+);
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.REFRESH_TOKEN
 });
 
-const drive = google.drive({ version: 'v3', auth });
+const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
-// Configuración explícita de memoria temporal para evitar que se pegue
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 } // Límite de 25 MB por archivo
+  limits: { fileSize: 25 * 1024 * 1024 }
 });
 
 // ---------------------------------------------------------
@@ -81,11 +85,11 @@ app.get('/api/archivos', async (req, res) => {
     const response = await drive.files.list({
       q: `'${FOLDER_ID}' in parents and trashed = false`,
       fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime)',
-      orderBy: 'createdTime desc',
-      supportsAllDrives: true
+      orderBy: 'createdTime desc'
     });
     res.json(response.data.files);
   } catch (error) {
+    console.error('Error listando archivos:', error);
     res.status(500).json({ error: 'Error conectando a Google Drive Pehuén' });
   }
 });
@@ -111,13 +115,12 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
     const file = await drive.files.create({
       resource: fileMetadata,
       media: media,
-      fields: 'id, name, webViewLink',
-      supportsAllDrives: true
+      fields: 'id, name, webViewLink'
     });
 
     res.json({ success: true, file: file.data });
   } catch (error) {
-    console.error('Error Drive:', error);
+    console.error('Error al subir a Drive:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Error al subir documento al servidor Drive' 
@@ -125,5 +128,8 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   }
 });
 
+// ESTA LÍNEA ES LA QUE FALTABA PARA ABRIR EL PUERTO EN RENDER:
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Oficina Técnica Pehuén activa en puerto ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Oficina Técnica Pehuén activa y escuchando en el puerto ${PORT}`);
+});
