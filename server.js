@@ -40,7 +40,7 @@ app.delete('/api/usuarios/:id', (req, res) => {
   res.json({ success: true, usuarios: usuariosAutorizados });
 });
 
-// CREAR SUBCARPETA DENTRO DE OTRA CARPETA
+// CREAR CARPETA
 app.post('/api/carpetas', async (req, res) => {
   try {
     const { nombre, parentId } = req.body;
@@ -64,20 +64,16 @@ app.post('/api/carpetas', async (req, res) => {
   }
 });
 
-// LISTAR TODO (Carpetas y Archivos con su jerarquía exacta)
+// LISTAR ELEMENTOS
 app.get('/api/elementos', async (req, res) => {
   try {
     const response = await drive.files.list({
-      q: `'${FOLDER_ID}' in parents or '${FOLDER_ID}' in parents or trashed = false`, // Buscador general controlado
       q: `trashed = false`,
       fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime, parents, properties)',
       orderBy: 'createdTime desc'
     });
 
-    // Filtramos solo los elementos que pertenecen al proyecto (evitamos basura de Drive)
     const allFiles = response.data.files;
-    
-    // Mapeamos para estructurarlo de manera limpia al frontend
     const elementos = allFiles.map(f => ({
       ...f,
       esCarpeta: f.mimeType === 'application/vnd.google-apps.folder',
@@ -93,7 +89,7 @@ app.get('/api/elementos', async (req, res) => {
   }
 });
 
-// SUBIR ARCHIVO A UNA CARPETA ESPECÍFICA POR ID
+// SUBIR ARCHIVO
 app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'Sin archivo' });
@@ -118,12 +114,29 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   }
 });
 
-app.delete('/api/archivos/:id', async (req, res) => {
+// ELIMINAR ARCHIVO O CARPETA (ADMIN)
+app.delete('/api/elementos/:id', async (req, res) => {
   try {
     await drive.files.delete({ fileId: req.params.id });
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ success: false, error: 'No se pudo eliminar' });
+    res.status(500).json({ success: false, error: 'No se pudo eliminar el elemento' });
+  }
+});
+
+// RENOMBRAR ARCHIVO O CARPETA (ADMIN)
+app.put('/api/elementos/:id/renombrar', async (req, res) => {
+  try {
+    const { nuevoNombre } = req.body;
+    if (!nuevoNombre || !nuevoNombre.trim()) return res.status(400).json({ success: false, error: 'Nombre inválido' });
+
+    const file = await drive.files.update({
+      fileId: req.params.id,
+      resource: { name: nuevoNombre.trim() }
+    });
+    res.json({ success: true, file: file.data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'No se pudo renombrar' });
   }
 });
 
