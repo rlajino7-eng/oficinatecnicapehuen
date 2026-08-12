@@ -1,5 +1,5 @@
 let todosLosElementos = [];
-let historialRuta = [{ id: '', nombre: 'Directorio Principal' }]; // ID raíz por defecto
+let historialRuta = [{ id: '', nombre: 'Directorio Principal' }];
 
 document.addEventListener('DOMContentLoaded', () => {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
@@ -36,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!input.files[0]) return;
 
             const carpetaActualId = historialRuta[historialRuta.length - 1].id;
-
             const formData = new FormData();
             formData.append('archivo', input.files[0]);
             formData.append('parentId', carpetaActualId);
@@ -111,8 +110,8 @@ async function cargarElementos() {
     } catch (err) { console.error('Error cargando elementos', err); }
 }
 
-// RENDERIZAR LA VISTA SEGÚN LA CARPETA ACTUAL DONDE ESTÁS PARADO
 function renderizarDirectorioActual() {
+    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
     const carpetaActual = historialRuta[historialRuta.length - 1];
     
     document.getElementById('tituloDirectorio').textContent = `📁 ${carpetaActual.nombre}`;
@@ -131,14 +130,8 @@ function renderizarDirectorioActual() {
     grilla.innerHTML = '';
     listaArchivos.innerHTML = '';
 
-    // Filtrar subcarpetas y archivos que están en este nivel exacto
-    // Nota: Si estamos en la raíz (id == ''), comparamos con los que tienen parentId igual al FOLDER_ID del servidor o sin padre directo
-    const subcarpetas = todosLosElementos.filter(e => e.esCarpeta && (carpetaActual.id === '' ? (e.parentId === todosLosElementos.find(x=>x.id === e.id)?.parentId) : e.parentId === carpetaActual.id));
-    
-    // Como la raíz puede tener IDs variables devueltos por Drive, resolvemos el nivel raíz de forma inteligente:
     let elementosEnNivel = [];
     if(carpetaActual.id === '') {
-        // En la raíz mostramos las carpetas cuyo padre directo es el ID principal de Drive o la raíz del listado
         const idsPrimarios = todosLosElementos.filter(e => e.esCarpeta).map(e => e.parentId);
         const raizIdReal = idsPrimarios[0] || ''; 
         elementosEnNivel = todosLosElementos.filter(e => e.parentId === raizIdReal || e.parentId === '');
@@ -149,24 +142,33 @@ function renderizarDirectorioActual() {
     const carpetasFiltradas = elementosEnNivel.filter(e => e.esCarpeta);
     const archivosFiltrados = elementosEnNivel.filter(e => !e.esCarpeta);
 
-    // Dibujar Tarjetas de Carpetas
+    // Dibujar Tarjetas de Carpetas con botones de Admin si corresponde
     if (carpetasFiltradas.length === 0 && archivosFiltrados.length === 0) {
-        grilla.innerHTML = '<p style="color: #64748b; grid-column: 1/-1;">Esta carpeta está vacía. Crea una subcarpeta o sube un archivo abajo.</p>';
+        grilla.innerHTML = '<p style="color: #64748b; grid-column: 1/-1;">Esta carpeta está vacía.</p>';
     } else {
         carpetasFiltradas.forEach(c => {
+            let botonesAdminCarpeta = '';
+            if (usuarioLogueado.rol === 'admin') {
+                botonesAdminCarpeta = `
+                    <div style="margin-top: 10px; display: flex; justify-content: center; gap: 5px;" onclick="event.stopPropagation()">
+                        <button onclick="renombrarCarpeta('${c.id}', '${c.name}')" style="background: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;" title="Renombrar">✏️</button>
+                        <button onclick="eliminarCarpeta('${c.id}', '${c.name}')" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;" title="Eliminar">🗑️</button>
+                    </div>`;
+            }
+
             grilla.innerHTML += `
                 <div class="folder-card" onclick="entrarCarpeta('${c.id}', '${c.name}')">
                     <div class="folder-icon">📁</div>
                     <h3>${c.name}</h3>
                     <p>Subcarpeta</p>
+                    ${botonesAdminCarpeta}
                 </div>`;
         });
     }
 
-    // Dibujar Tabla de Archivos si existen
+    // Dibujar Tabla de Archivos
     if (archivosFiltrados.length > 0) {
         contenedorTabla.style.display = 'block';
-        const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
 
         archivosFiltrados.forEach(a => {
             const estaEnUso = a.estado === 'EN_USO';
@@ -205,13 +207,11 @@ function renderizarDirectorioActual() {
     }
 }
 
-// ENTRAR A UNA SUBCARPETA
 function entrarCarpeta(id, nombre) {
     historialRuta.push({ id: id, nombre: nombre });
     renderizarDirectorioActual();
 }
 
-// SUBIR DE NIVEL EN EL HISTORIAL
 function subirNivelCarpeta() {
     if (historialRuta.length > 1) {
         historialRuta.pop();
@@ -219,9 +219,8 @@ function subirNivelCarpeta() {
     }
 }
 
-// CREAR CARPETA EN EL NIVEL ACTUAL
 async function crearCarpetaActual() {
-    const nombre = prompt('Ingresa el nombre de la nueva carpeta (Ej: Contratos, Liquidaciones):');
+    const nombre = prompt('Ingresa el nombre de la nueva carpeta:');
     if (!nombre || !nombre.trim()) return;
 
     const carpetaActualId = historialRuta[historialRuta.length - 1].id;
@@ -234,13 +233,53 @@ async function crearCarpetaActual() {
         });
         const data = await res.json();
         if (data.success) {
-            alert('¡Subcarpeta creada correctamente!');
+            alert('¡Carpeta creada correctamente!');
             cargarElementos();
         } else {
-            alert('No se pudo crear la subcarpeta.');
+            alert('No se pudo crear la carpeta.');
         }
     } catch (err) {
-        alert('Error de red al crear la subcarpeta.');
+        alert('Error de red al crear la carpeta.');
+    }
+}
+
+// --- NUEVO: FUNCIONES DE ADMIN PARA CARPETAS ---
+async function renombrarCarpeta(id, nombreActual) {
+    const nuevoNombre = prompt('Ingresa el nuevo nombre para la carpeta:', nombreActual);
+    if (!nuevoNombre || !nuevoNombre.trim() || nuevoNombre === nombreActual) return;
+
+    try {
+        const res = await fetch(`/api/elementos/${id}/renombrar`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nuevoNombre: nuevoNombre.trim() })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('Carpeta renombrada con éxito.');
+            cargarElementos();
+        } else {
+            alert('No se pudo renombrar la carpeta.');
+        }
+    } catch (err) {
+        alert('Error de red al renombrar.');
+    }
+}
+
+async function eliminarCarpeta(id, nombre) {
+    if (confirm(`¿Estás seguro de eliminar la carpeta "${nombre}"? Nota: Google Drive requiere que la carpeta esté vacía para eliminarla.`)) {
+        try {
+            const res = await fetch(`/api/elementos/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                alert('Carpeta eliminada.');
+                cargarElementos();
+            } else {
+                alert('No se pudo eliminar. Asegúrate de que la carpeta esté vacía.');
+            }
+        } catch (err) {
+            alert('Error de red al eliminar.');
+        }
     }
 }
 
@@ -264,7 +303,7 @@ async function desbloquearArchivo(id) {
 
 async function eliminarArchivo(id) {
     if (confirm('¿Estás seguro de eliminar este documento?')) {
-        await fetch(`/api/archivos/${id}`, { method: 'DELETE' });
+        await fetch(`/api/elementos/${id}`, { method: 'DELETE' });
         cargarElementos();
     }
 }
