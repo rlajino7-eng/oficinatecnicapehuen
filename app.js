@@ -1,4 +1,5 @@
 let todosLosArchivos = [];
+let carpetaSeleccionada = '';
 
 document.addEventListener('DOMContentLoaded', () => {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
@@ -9,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrarApp(usuarioLogueado);
     }
 
-    // --- LÓGICA DE INICIO DE SESIÓN ---
+    // --- LOGIN ---
     document.getElementById('formLogin').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('emailLogin').value;
@@ -28,18 +29,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- LÓGICA DE SUBIDA DE ARCHIVOS ---
+    // --- SUBIR ARCHIVO DENTRO DE LA CARPETA ACTIVA ---
     const formSubir = document.getElementById('formSubir');
     if (formSubir) {
         formSubir.addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('archivoInput');
-            const inputCarpeta = document.getElementById('inputCarpetaNueva').value;
-
             if (!input.files[0]) return;
+
             const formData = new FormData();
             formData.append('archivo', input.files[0]);
-            formData.append('carpeta', inputCarpeta.trim());
+            formData.append('carpeta', carpetaSeleccionada); // Envía la carpeta en la que estás metido
 
             const btn = formSubir.querySelector('.btn-upload');
             btn.textContent = 'Subiendo...';
@@ -49,10 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     input.value = '';
                     document.getElementById('nombreSeleccionado').textContent = 'Ningún archivo...';
-                    cargarArchivos();
+                    cargarArchivos(); // Recarga y mantiene la vista dentro de la carpeta
                 } else alert('Error: ' + data.error);
             } catch (err) { alert('Error de red'); }
-            btn.textContent = '⬆ Subir';
+            btn.textContent = '⬆ Subir aquí';
         });
 
         document.getElementById('archivoInput').addEventListener('change', (e) => {
@@ -60,11 +60,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NUEVO: LÓGICA PARA CREAR USUARIOS DESDE EL MODAL ---
+    // --- CREAR USUARIOS ---
     const formUsuario = document.getElementById('formUsuario');
     if (formUsuario) {
         formUsuario.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Evita que la página se recargue
+            e.preventDefault();
             const nombre = document.getElementById('nombreUser').value;
             const email = document.getElementById('emailUser').value;
             const password = document.getElementById('passUser').value;
@@ -78,13 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('Usuario corporativo agregado correctamente.');
+                    alert('Usuario agregado correctamente.');
                     formUsuario.reset();
-                    document.getElementById('passUser').value = 'pehuen123'; // Reinicia la pass por defecto
-                    cargarUsuarios(); // Actualiza la tablita de abajo
+                    document.getElementById('passUser').value = 'pehuen123';
+                    cargarUsuarios();
                 }
             } catch (error) {
-                alert('Error al conectar con el servidor para agregar usuario.');
+                alert('Error al agregar usuario.');
             }
         });
     }
@@ -110,50 +110,82 @@ async function cargarArchivos() {
     try {
         const res = await fetch('/api/archivos');
         todosLosArchivos = await res.json();
-        actualizarSelectoresCarpetas(todosLosArchivos);
-        renderizarTabla();
+        
+        // Si estamos viendo una carpeta, refrescamos su tabla en tiempo real
+        if(carpetaSeleccionada) {
+            renderizarTablaCarpeta();
+        } else {
+            renderizarGrillaCarpetas();
+        }
     } catch (err) { console.error('Error cargando archivos', err); }
 }
 
-function actualizarSelectoresCarpetas(archivos) {
-    const carpetasUnicas = new Set();
-    archivos.forEach(a => carpetasUnicas.add(a.carpeta));
+// Dibuja las tarjetas de carpetas en la pantalla principal
+function renderizarGrillaCarpetas() {
+    const contenedor = document.getElementById('grillaCarpetas');
+    contenedor.innerHTML = '';
 
-    const selectorVisor = document.getElementById('filtroCarpetaVisor');
-    const dataListSubida = document.getElementById('listaCarpetas');
-    
-    const seleccionActual = selectorVisor.value;
-
-    selectorVisor.innerHTML = '<option value="TODAS">Todos los Proyectos</option>';
-    dataListSubida.innerHTML = '';
-
-    carpetasUnicas.forEach(carpeta => {
-        selectorVisor.innerHTML += `<option value="${carpeta}">${carpeta}</option>`;
-        dataListSubida.innerHTML += `<option value="${carpeta}">`;
+    // Agrupar carpetas y contar archivos
+    const mapaCarpetas = {};
+    todosLosArchivos.forEach(a => {
+        const carp = a.carpeta || 'General';
+        if(!mapaCarpetas[carp]) mapaCarpetas[carp] = 0;
+        mapaCarpetas[carp]++;
     });
 
-    if(carpetasUnicas.has(seleccionActual)) {
-        selectorVisor.value = seleccionActual;
+    // Asegurar que al menos aparezca "General" u otras por defecto
+    if(Object.keys(mapaCarpetas).length === 0) {
+        mapaCarpetas['General'] = 0;
     }
+
+    Object.keys(mapaCarpetas).forEach(nombreCarpeta => {
+        const cantidad = mapaCarpetas[nombreCarpeta];
+        contenedor.innerHTML += `
+            <div class="folder-card" onclick="abrirCarpeta('${nombreCarpeta}')">
+                <div class="folder-icon">📁</div>
+                <h3>${nombreCarpeta}</h3>
+                <p>${cantidad} ${cantidad === 1 ? 'archivo' : 'archivos'}</p>
+            </div>`;
+    });
 }
 
-function renderizarTabla() {
+// Al hacer clic en una tarjeta de carpeta
+function abrirCarpeta(nombreCarpeta) {
+    carpetaSeleccionada = nombreCarpeta;
+    document.getElementById('tituloCarpetaActiva').textContent = `📁 Carpeta: ${nombreCarpeta}`;
+    document.getElementById('inputCarpetaActual').value = nombreCarpeta;
+    
+    // Cambiar pantallas visuales
+    document.getElementById('vistaCarpetasContainer').style.display = 'none';
+    document.getElementById('vistaArchivosContainer').style.display = 'block';
+    
+    renderizarTablaCarpeta();
+}
+
+// Botón para volver a la pantalla de tarjetas
+function volverAColinas() {
+    carpetaSeleccionada = '';
+    document.getElementById('vistaArchivosContainer').style.display = 'none';
+    document.getElementById('vistaCarpetasContainer').style.display = 'block';
+    renderizarGrillaCarpetas();
+}
+
+// Dibuja la tabla de archivos filtrada solo para la carpeta activa
+function renderizarTablaCarpeta() {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
     const filtroTipo = document.getElementById('filtroCategoria').value;
-    const filtroCarpeta = document.getElementById('filtroCarpetaVisor').value;
     const lista = document.getElementById('listaArchivos');
     lista.innerHTML = '';
 
-    if (todosLosArchivos.length === 0) {
-        lista.innerHTML = '<tr><td colspan="5" class="loading">No hay documentos en el repositorio.</td></tr>';
+    const archivosDeCarpeta = todosLosArchivos.filter(a => (a.carpeta || 'General') === carpetaSeleccionada);
+
+    if (archivosDeCarpeta.length === 0) {
+        lista.innerHTML = '<tr><td colspan="4" class="loading" style="text-align: center; padding: 20px;">No hay documentos en esta carpeta. ¡Sube el primero arriba!</td></tr>';
         return;
     }
 
-    todosLosArchivos.forEach(a => {
-        const cumpleTipo = (filtroTipo === 'TODOS' || a.categoria === filtroTipo);
-        const cumpleCarpeta = (filtroCarpeta === 'TODAS' || a.carpeta === filtroCarpeta);
-
-        if (cumpleTipo && cumpleCarpeta) {
+    archivosDeCarpeta.forEach(a => {
+        if (filtroTipo === 'TODOS' || a.categoria === filtroTipo) {
             const estaEnUso = a.estado === 'EN_USO';
             const esDueño = a.bloqueadoPor === usuarioLogueado.nombre;
             const esAdmin = usuarioLogueado.rol === 'admin';
@@ -161,7 +193,6 @@ function renderizarTabla() {
             let etiquetaEstado = estaEnUso ? `<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">🔒 En uso por ${a.bloqueadoPor}</span>` : '';
             
             let botones = '';
-            
             if (estaEnUso) {
                 if (esDueño || esAdmin) {
                     botones += `<button onclick="reemplazarArchivo('${a.id}')" style="background: #0284c7; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 12px;">⬆ Subir Modificado</button>`;
@@ -177,7 +208,6 @@ function renderizarTabla() {
 
             lista.innerHTML += `
                 <tr>
-                    <td><span style="background:#e2e8f0; padding: 3px 8px; border-radius: 4px; color: #334155; font-size: 13px;">📁 ${a.carpeta}</span></td>
                     <td><strong>${a.categoria}</strong></td>
                     <td>
                         <a href="${a.webViewLink}" target="_blank" style="color: #004080; font-weight: 500; text-decoration: none;">${a.name}</a><br>
@@ -243,11 +273,10 @@ async function cargarUsuarios() {
     });
 }
 
-// --- NUEVO: FUNCIÓN PARA ELIMINAR USUARIO ---
 async function eliminarUser(id) {
-    if(confirm('¿Estás seguro de que quieres revocar el acceso a este usuario?')) {
+    if(confirm('¿Estás seguro de revocar el acceso a este usuario?')) {
         await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
-        cargarUsuarios(); // Recarga la tabla para que el usuario desaparezca visualmente
+        cargarUsuarios();
     }
 }
 
