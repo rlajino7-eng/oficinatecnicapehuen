@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        /* Estilos visuales para las tarjetas de carpetas */
         .folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; margin-top: 20px; }
         .folder-card { background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 25px; text-align: center; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .folder-card:hover { transform: translateY(-3px); border-color: #0284c7; box-shadow: 0 4px 12px rgba(0,2,199,0.1); }
@@ -16,6 +15,8 @@
         .folder-icon { font-size: 40px; }
         .btn-volver { background: #475569; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
         .btn-volver:hover { background: #334155; }
+        .btn-nueva-carpeta { background: #0284c7; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-nueva-carpeta:hover { background: #0369a1; }
     </style>
 </head>
 <body>
@@ -58,22 +59,25 @@
 
         <main class="dashboard">
             
-            <!-- VISTA 1: GRILLA DE CARPETAS (Se muestra al inicio) -->
+            <!-- VISTA 1: GRILLA DE CARPETAS -->
             <div id="vistaCarpetasContainer">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                    <h2>📁 Directorio de Proyectos y Departamentos</h2>
-                    <!-- Botón rápido para crear o elegir carpeta nueva al subir -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h2>📁 Directorio de Proyectos y Departamentos</h2>
+                        <p style="color: #64748b; margin: 5px 0 0 0;">Selecciona una carpeta para ver, descargar o subir documentos en su interior.</p>
+                    </div>
+                    <!-- BOTÓN PARA CREAR NUEVA CARPETA -->
+                    <button class="btn-nueva-carpeta" onclick="crearNuevaCarpeta()">➕ Nueva Carpeta</button>
                 </div>
-                <p style="color: #64748b;">Selecciona una carpeta para ver, descargar o subir documentos en su interior.</p>
                 
                 <div id="grillaCarpetas" class="folder-grid">
-                    <!-- Las tarjetas de carpetas se cargarán aquí solas -->
+                    <!-- Tarjetas de carpetas -->
                 </div>
             </div>
 
-            <!-- VISTA 2: CONTENIDO DE LA CARPETA SELECCIONADA (Oculta por defecto) -->
+            <!-- VISTA 2: CONTENIDO DE LA CARPETA SELECCIONADA -->
             <div id="vistaArchivosContainer" style="display: none;">
-                <button class="btn-volver" onclick="volverAColinas()">⬅ Volver a Carpetas</button>
+                <button class="btn-volver" onclick="volverACarpetas()">⬅ Volver a Carpetas</button>
                 
                 <div style="background: #f1f5f9; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                     <div>
@@ -91,7 +95,6 @@
                     </form>
                 </div>
 
-                <!-- Filtro opcional por tipo dentro de la carpeta -->
                 <div style="margin-bottom: 15px;">
                     <label for="filtroCategoria" style="font-weight: bold; font-size: 13px;">Filtrar por tipo:</label>
                     <select id="filtroCategoria" onchange="renderizarTablaCarpeta()" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
@@ -102,7 +105,6 @@
                     </select>
                 </div>
 
-                <!-- Tabla de archivos de la carpeta -->
                 <section class="table-container">
                     <table class="tech-table">
                         <thead>
@@ -113,9 +115,7 @@
                                 <th>ACCIONES CORPORATIVAS</th>
                             </tr>
                         </thead>
-                        <tbody id="listaArchivos">
-                            <!-- Los archivos se cargan aquí -->
-                        </tbody>
+                        <tbody id="listaArchivos"></tbody>
                     </table>
                 </section>
             </div>
