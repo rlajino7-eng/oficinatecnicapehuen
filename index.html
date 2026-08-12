@@ -19,10 +19,8 @@
             <form id="formLogin" class="login-form">
                 <label for="emailLogin">Correo Electrónico</label>
                 <input type="email" id="emailLogin" placeholder="usuario@pehuen.cl" required>
-                
                 <label for="passLogin">Contraseña</label>
                 <input type="password" id="passLogin" placeholder="••••••••" required>
-                
                 <p id="loginError" class="error-msg"></p>
                 <button type="submit" class="btn-login">INICIAR SESIÓN</button>
             </form>
@@ -48,29 +46,41 @@
         </header>
 
         <main class="dashboard">
-            <!-- BARRA DE ACCIONES Y FILTRO DE CATEGORÍAS -->
-            <section class="toolbar">
-                <div class="status-indicator">
-                    <span class="pulse-green"></span>
-                    <strong>Conectado a Google Drive Corporativo</strong>
+            <!-- BARRA DE ACCIONES Y FILTROS -->
+            <section class="toolbar" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: space-between; align-items: center;">
+                
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <!-- Filtro por Proyecto/Carpeta -->
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <label for="filtroCarpetaVisor" style="font-weight: bold; color: white;">📁 Proyecto:</label>
+                        <select id="filtroCarpetaVisor" onchange="renderizarTabla()" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-weight: bold;">
+                            <option value="TODAS">Todos los Proyectos</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro por Tipo -->
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <label for="filtroCategoria" style="font-weight: bold; color: white;">Tipo:</label>
+                        <select id="filtroCategoria" onchange="renderizarTabla()" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                            <option value="TODOS">Todas las categorías</option>
+                            <option value="PLANO">Planos</option>
+                            <option value="INFORME">Informes</option>
+                            <option value="GENERAL">General</option>
+                        </select>
+                    </div>
                 </div>
 
-                <!-- Selector de Categorías -->
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <label for="filtroCategoria" style="font-weight: 600; font-size: 14px;">Filtrar:</label>
-                    <select id="filtroCategoria" onchange="cargarArchivos()" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-                        <option value="TODOS">Todas las categorías</option>
-                        <option value="PLANO">Planos</option>
-                        <option value="INFORME">Informes</option>
-                        <option value="GENERAL">General</option>
-                    </select>
-                </div>
+                <!-- Formulario de subida -->
+                <form id="formSubir" class="upload-area" style="display: flex; gap: 10px; align-items: center;">
+                    <!-- Input inteligente que permite escribir o seleccionar carpeta -->
+                    <input list="listaCarpetas" id="inputCarpetaNueva" placeholder="Nombre del Proyecto/Carpeta..." required style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 220px;">
+                    <datalist id="listaCarpetas"></datalist>
 
-                <form id="formSubir" class="upload-area">
-                    <label for="archivoInput" class="btn-select">📁 Seleccionar Documento</label>
+                    <label for="archivoInput" class="btn-select" style="margin: 0;">📁 Archivo</label>
                     <input type="file" id="archivoInput" required style="display: none;">
                     <span id="nombreSeleccionado" class="file-name">Ningún archivo...</span>
-                    <button type="submit" class="btn-upload">⬆ Subir a Drive</button>
+                    
+                    <button type="submit" class="btn-upload">⬆ Subir</button>
                 </form>
             </section>
 
@@ -79,14 +89,15 @@
                 <table class="tech-table">
                     <thead>
                         <tr>
-                            <th>CATEGORÍA</th>
+                            <th>PROYECTO</th>
+                            <th>TIPO</th>
                             <th>NOMBRE DEL ARCHIVO / DOCUMENTO TÉCNICO</th>
                             <th>FECHA REGISTRO</th>
                             <th>ACCIONES CORPORATIVAS</th>
                         </tr>
                     </thead>
                     <tbody id="listaArchivos">
-                        <tr><td colspan="4" class="loading">Cargando repositorio de ingeniería...</td></tr>
+                        <tr><td colspan="5" class="loading">Cargando repositorio de ingeniería...</td></tr>
                     </tbody>
                 </table>
             </section>
