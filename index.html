@@ -1,43 +1,999 @@
-<!-- ... (Mantén todo tu código anterior igual hasta la sección de la tabla) ... -->
-
-<!-- MODIFICACIÓN: AGREGAR FILTRO DE CATEGORÍAS ANTES DE LA TABLA -->
-<section class="toolbar">
-    <div class="status-indicator">
-        <span class="pulse-green"></span>
-        <strong>Conectado a Google Drive Corporativo</strong>
-    </div>
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Latitud7 | Comunidad de Aventuras, Viajes y Exploración</title>
     
-    <!-- Filtro -->
-    <select id="filtroCategoria" onchange="renderizarTabla()">
-        <option value="TODOS">Todas las categorías</option>
-        <option value="PLANO">Planos</option>
-        <option value="INFORME">Informes</option>
-        <option value="GENERAL">General</option>
-    </select>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        adventure: {
+                            dark: '#080C14',     // Negro profundo
+                            card: '#111827',     // Fondo tarjetas
+                            accent: '#10B981',   // Verde naturaleza
+                            earth: '#8B5A2B',    // Tonos tierra
+                            orange: '#F59E0B'    // Naranja atardecer
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        display: ['Montserrat', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Google Identity Services (Para Login Real) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <style>
+        body { background-color: #080C14; color: #F3F4F6; overflow-x: hidden; }
+        
+        /* Fondo Cinematográfico */
+        .hero-bg { 
+            background: linear-gradient(to bottom, rgba(8, 12, 20, 0.4), rgba(8, 12, 20, 0.95)), 
+                        url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat; 
+            background-attachment: fixed;
+        }
+        
+        /* Efecto Vidrio (Glassmorphism) */
+        .glass-panel { 
+            background: rgba(17, 24, 39, 0.6); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+        }
 
-    <form id="formSubir" class="upload-area">
-        <label for="archivoInput" class="btn-select">📁 Seleccionar Documento</label>
-        <input type="file" id="archivoInput" required style="display: none;">
-        <span id="nombreSeleccionado" class="file-name">Ningún archivo...</span>
-        <button type="submit" class="btn-upload">⬆ Subir a Drive</button>
-    </form>
-</section>
+        /* Animaciones al hacer Scroll (Intersection Observer) */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
 
-<!-- TABLA DE DOCUMENTOS (ACTUALIZADA) -->
-<section class="table-container">
-    <table class="tech-table">
-        <thead>
-            <tr>
-                <th>CATEGORÍA</th>
-                <th>NOMBRE DEL ARCHIVO / DOCUMENTO TÉCNICO</th>
-                <th>FECHA REGISTRO</th>
-                <th>ACCIONES CORPORATIVAS</th>
-            </tr>
-        </thead>
-        <tbody id="listaArchivos">
-            <!-- Los botones de eliminar/actualizar aparecerán aquí -->
-        </tbody>
-    </table>
-</section>
+        /* Texturas sutiles inspiradas en mapas/rutas */
+        .texture-bg {
+            background-image: radial-gradient(rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
 
-<!-- ... (Mantén el resto de tu código igual: Modal, Scripts, etc.) ... -->
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #080C14; }
+        ::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #10B981; }
+    </style>
+</head>
+<body class="font-sans antialiased selection:bg-emerald-500 selection:text-white texture-bg">
+
+    <!-- BARRA DE NAVEGACIÓN -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-white/5 transition-all duration-300" id="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            
+            <!-- ESPACIO PARA TU LOGO -->
+            <a href="#inicio" class="flex items-center gap-3 group">
+                <!-- Cuando tengas tu logo, reemplaza este div por tu etiqueta <img src="tu-logo.png" class="h-12"> -->
+                <div id="logo-placeholder" class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-adventure-earth flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-compass text-white text-2xl"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-display font-black text-2xl tracking-widest text-white">LATITUD<span class="text-emerald-400">7</span></span>
+                    <span class="text-[9px] tracking-[0.2em] uppercase text-gray-400 font-bold">Comunidad de Aventura</span>
+                </div>
+            </a>
+
+            <!-- Menú Desktop -->
+            <div class="hidden xl:flex items-center gap-6 text-sm font-bold text-gray-300 uppercase tracking-wider">
+                <a href="#inicio" class="hover:text-emerald-400 transition-colors">Inicio</a>
+                <a href="#aventuras" class="hover:text-emerald-400 transition-colors">Aventuras</a>
+                <a href="#galeria" class="hover:text-emerald-400 transition-colors">Galería</a>
+                <a href="#videos" class="hover:text-emerald-400 transition-colors">Videos</a>
+                <a href="#tienda" class="hover:text-emerald-400 transition-colors">Tienda</a>
+                <a href="#donaciones" class="hover:text-emerald-400 transition-colors text-amber-400"><i class="fa-solid fa-fire mr-1"></i> Apóyanos</a>
+                <a href="#nosotros" class="hover:text-emerald-400 transition-colors">Nosotros</a>
+                <a href="#contacto" class="hover:text-emerald-400 transition-colors">Contacto</a>
+                <div id="admin-nav-link" class="hidden">
+                    <a href="#admin-panel" class="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/40 transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)]"><i class="fa-solid fa-shield-halved mr-1"></i> Admin</a>
+                </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="flex items-center gap-3">
+                <button onclick="toggleCart()" class="relative p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors border border-white/5" aria-label="Carrito">
+                    <i class="fa-solid fa-cart-shopping text-lg"></i>
+                    <span id="cart-badge" class="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-adventure-dark">0</span>
+                </button>
+
+                <div id="auth-container">
+                    <button onclick="openAuthModal()" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 uppercase tracking-wide">
+                        <i class="fa-solid fa-user"></i> <span class="hidden sm:inline">ÚNETE</span>
+                    </button>
+                </div>
+
+                <button onclick="toggleMobileMenu()" class="xl:hidden p-3 rounded-xl bg-white/5 text-white hover:bg-white/10 border border-white/5">
+                    <i class="fa-solid fa-bars text-xl" id="menu-icon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Menú Móvil -->
+        <div id="mobile-menu" class="hidden xl:hidden glass-panel border-t border-white/5 px-6 py-6 space-y-4">
+            <a href="#inicio" onclick="toggleMobileMenu()" class="block text-lg font-black uppercase text-gray-200 hover:text-emerald-400">Inicio</a>
+            <a href="#aventuras" onclick="toggleMobileMenu()" class="block text-lg font-black uppercase text-gray-200 hover:text-emerald-400">Nuestras Aventuras</a>
+            <a href="#galeria" onclick="toggleMobileMenu()" class="block text-lg font-black uppercase text-gray-200 hover:text-emerald-400">Galería</a>
+            <a href="#videos" onclick="toggleMobileMenu()" class="block text-lg font-black uppercase text-gray-200 hover:text-emerald-400">Videos</a>
+            <a href="#tienda" onclick="toggleMobileMenu()" class="block text-lg font-black uppercase text-gray-200 hover:text-emerald-400">Tienda Online</a>
+            <a href="#donaciones" onclick="toggleMobileMenu()" class="block text-lg font-black uppercase text-amber-400">Apóyanos / Donaciones</a>
+            <a href="#nosotros" onclick="toggleMobileMenu()" class="block text-lg font-black uppercase text-gray-200 hover:text-emerald-400">Sobre Nosotros</a>
+            <a href="#contacto" onclick="toggleMobileMenu()" class="block text-lg font-black uppercase text-gray-200 hover:text-emerald-400">Contacto</a>
+            <div id="mobile-admin-link" class="hidden pt-4 border-t border-white/10">
+                <a href="#admin-panel" onclick="toggleMobileMenu()" class="block text-lg font-black uppercase text-red-400"><i class="fa-solid fa-shield-halved mr-2"></i> Panel Administrador</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- SECCIÓN HERO / BIENVENIDA -->
+    <header id="inicio" class="relative min-h-screen hero-bg flex items-center justify-center pt-20 px-4 overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-t from-adventure-dark via-transparent to-black/30"></div>
+        
+        <!-- Elemento gráfico tipo brújula de fondo -->
+        <i class="fa-regular fa-compass absolute text-[40rem] text-white/5 -right-20 -bottom-20 pointer-events-none animate-[spin_120s_linear_infinite]"></i>
+
+        <div class="max-w-5xl mx-auto text-center relative z-10 space-y-8 py-20 reveal">
+            <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full glass-panel text-emerald-400 text-xs font-black tracking-[0.2em] uppercase border border-emerald-500/30">
+                <i class="fa-solid fa-route"></i> Descubre lo inexplorado
+            </div>
+            <h1 class="font-display font-black text-6xl sm:text-7xl lg:text-9xl tracking-tighter leading-none text-white drop-shadow-2xl">
+                ESPÍRITU <br> <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-adventure-earth">SALVAJE</span>
+            </h1>
+            <p class="max-w-2xl mx-auto text-lg sm:text-xl text-gray-300 font-medium leading-relaxed">
+                Una comunidad unida por la libertad, la naturaleza y la exploración. Sé parte de nuestras expediciones y vive momentos inolvidables al aire libre.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
+                <a href="#aventuras" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black text-sm uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:scale-105 transition-all text-center">
+                    DESCUBRE NUESTRAS AVENTURAS <i class="fa-solid fa-arrow-right ml-2"></i>
+                </a>
+                <a href="#galeria" class="w-full sm:w-auto px-8 py-4 rounded-2xl glass-panel text-white font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all text-center border border-white/20">
+                    VER GALERÍA <i class="fa-solid fa-images ml-2"></i>
+                </a>
+            </div>
+
+            <!-- Redes Sociales -->
+            <div class="pt-12 flex items-center justify-center gap-6 text-gray-400">
+                <a href="#" class="w-12 h-12 rounded-2xl glass-panel flex items-center justify-center hover:text-emerald-400 hover:border-emerald-400 hover:scale-110 transition-all shadow-lg"><i class="fa-brands fa-instagram text-2xl"></i></a>
+                <a href="#" class="w-12 h-12 rounded-2xl glass-panel flex items-center justify-center hover:text-red-500 hover:border-red-500 hover:scale-110 transition-all shadow-lg"><i class="fa-brands fa-youtube text-2xl"></i></a>
+                <a href="#" class="w-12 h-12 rounded-2xl glass-panel flex items-center justify-center hover:text-cyan-400 hover:border-cyan-400 hover:scale-110 transition-all shadow-lg"><i class="fa-brands fa-tiktok text-2xl"></i></a>
+            </div>
+        </div>
+        
+        <!-- Indicador de Scroll -->
+        <a href="#aventuras" class="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/50 hover:text-emerald-400 animate-bounce transition-colors">
+            <i class="fa-solid fa-chevron-down text-3xl"></i>
+        </a>
+    </header>
+
+    <!-- PANEL DE ADMINISTRADOR (Control Total con Carga de Archivos Local) -->
+    <section id="admin-panel" class="py-24 bg-[#0a0f18] border-b border-red-500/20 hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 reveal">
+            <div class="bg-gradient-to-br from-[#111827] to-[#0B101A] rounded-[2rem] p-8 sm:p-12 border border-red-500/30 shadow-2xl relative overflow-hidden">
+                <!-- Efecto de luz roja de fondo para el admin -->
+                <div class="absolute -top-32 -right-32 w-96 h-96 bg-red-600/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/5 pb-8 mb-8 relative z-10">
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs font-black uppercase tracking-widest mb-3 border border-red-500/20">
+                            <i class="fa-solid fa-lock"></i> Acceso Nivel Dios
+                        </div>
+                        <h2 class="font-display font-black text-4xl text-white">Panel de Control Latitud7</h2>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-xs text-gray-400 uppercase tracking-widest font-bold">Autenticado como</span>
+                        <strong id="admin-email-display" class="text-emerald-400 text-lg">Admin</strong>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+                    <!-- 1. Aventura -->
+                    <div class="glass-panel p-6 rounded-3xl space-y-4 hover:border-emerald-500/30 transition-colors">
+                        <h3 class="font-display font-black text-lg text-white uppercase tracking-wider"><i class="fa-solid fa-mountain text-emerald-400 mr-2"></i> + Aventura</h3>
+                        <form onsubmit="adminAddAdventure(event)" class="space-y-3">
+                            <input type="text" id="adv-title" required placeholder="Título (Ej. Volcán Osorno)" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                            <select id="adv-cat" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                                <option value="naturaleza">Naturaleza</option>
+                                <option value="trekking">Trekking</option>
+                                <option value="camping">Camping</option>
+                                <option value="montana">Montaña</option>
+                                <option value="playa">Playa</option>
+                                <option value="vehiculos">Vehículos 4x4</option>
+                                <option value="viajes">Viajes</option>
+                                <option value="extremo">Deportes Extremos</option>
+                            </select>
+                            <div class="flex gap-2">
+                                <input type="text" id="adv-loc" required placeholder="Lugar" class="w-1/2 px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                                <input type="date" id="adv-date" required class="w-1/2 px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-gray-400 text-sm focus:border-emerald-500 focus:outline-none">
+                            </div>
+                            <div class="space-y-1 bg-black/40 p-3 rounded-xl border border-white/5">
+                                <label class="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">Subir Foto desde PC/Celular:</label>
+                                <input type="file" id="adv-file" accept="image/*" required class="w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:uppercase file:bg-emerald-500 file:text-adventure-dark hover:file:bg-emerald-400 cursor-pointer">
+                            </div>
+                            <textarea id="adv-desc" rows="3" required placeholder="Describe la experiencia detalladamente..." class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none"></textarea>
+                            <button type="submit" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]">Publicar Aventura</button>
+                        </form>
+                    </div>
+
+                    <!-- 2. Tienda -->
+                    <div class="glass-panel p-6 rounded-3xl space-y-4 hover:border-emerald-500/30 transition-colors">
+                        <h3 class="font-display font-black text-lg text-white uppercase tracking-wider"><i class="fa-solid fa-store text-emerald-400 mr-2"></i> + Producto</h3>
+                        <form onsubmit="adminAddProduct(event)" class="space-y-3">
+                            <input type="text" id="prod-name" required placeholder="Nombre Artículo" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                            <input type="number" id="prod-price" required placeholder="Precio en CLP (Ej: 15000)" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                            <div class="space-y-1 bg-black/40 p-3 rounded-xl border border-white/5">
+                                <label class="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">Foto del Producto:</label>
+                                <input type="file" id="prod-file" accept="image/*" required class="w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:uppercase file:bg-emerald-500 file:text-adventure-dark hover:file:bg-emerald-400 cursor-pointer">
+                            </div>
+                            <textarea id="prod-desc" rows="3" required placeholder="Características, tallas, material..." class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none"></textarea>
+                            <button type="submit" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] mt-auto">Vender Artículo</button>
+                        </form>
+                    </div>
+
+                    <!-- 3. Galería (Foto) -->
+                    <div class="glass-panel p-6 rounded-3xl space-y-4 hover:border-emerald-500/30 transition-colors">
+                        <h3 class="font-display font-black text-lg text-white uppercase tracking-wider"><i class="fa-solid fa-images text-emerald-400 mr-2"></i> + Galería</h3>
+                        <form onsubmit="adminAddGallery(event)" class="space-y-3">
+                            <div class="space-y-1 bg-black/40 p-3 rounded-xl border border-white/5">
+                                <label class="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">Sube tu fotografía:</label>
+                                <input type="file" id="gal-file" accept="image/*" required class="w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:uppercase file:bg-emerald-500 file:text-adventure-dark hover:file:bg-emerald-400 cursor-pointer">
+                            </div>
+                            <input type="text" id="gal-cap" required placeholder="Leyenda / Título de la foto" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                            <select id="gal-cat" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                                <option value="Paisajes">Paisajes</option>
+                                <option value="Comunidad">Comunidad</option>
+                                <option value="Rutas">Rutas</option>
+                            </select>
+                            <button type="submit" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]">Subir al Álbum</button>
+                        </form>
+                    </div>
+
+                    <!-- 4. Video -->
+                    <div class="glass-panel p-6 rounded-3xl space-y-4 hover:border-emerald-500/30 transition-colors">
+                        <h3 class="font-display font-black text-lg text-white uppercase tracking-wider"><i class="fa-solid fa-video text-emerald-400 mr-2"></i> + Video</h3>
+                        <form onsubmit="adminAddVideo(event)" class="space-y-3">
+                            <input type="text" id="vid-title" required placeholder="Título del Video" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                            <input type="text" id="vid-sub" required placeholder="Ej. Temporada 1 / Episodio 2" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                            <input type="url" id="vid-url" required placeholder="Link de YouTube (URL)" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                            <div class="space-y-1 bg-black/40 p-3 rounded-xl border border-white/5">
+                                <label class="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">Miniatura de portada:</label>
+                                <input type="file" id="vid-file" accept="image/*" required class="w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:uppercase file:bg-emerald-500 file:text-adventure-dark hover:file:bg-emerald-400 cursor-pointer">
+                            </div>
+                            <button type="submit" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]">Publicar Video</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="pt-8 mt-8 flex justify-end border-t border-white/5 relative z-10">
+                    <button onclick="logoutAdmin()" class="px-8 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-black uppercase tracking-widest text-xs border border-red-500/30 transition-all">
+                        <i class="fa-solid fa-power-off mr-2"></i> Cerrar Sesión de Administrador
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN NUESTRAS AVENTURAS -->
+    <section id="aventuras" class="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div class="text-center space-y-4 mb-16 reveal">
+            <div class="inline-flex items-center gap-2 text-emerald-400 font-black uppercase tracking-[0.2em] text-xs">
+                <i class="fa-solid fa-map"></i> Bitácora de Viaje
+            </div>
+            <h2 class="font-display font-black text-4xl sm:text-6xl text-white tracking-tight">NUESTRAS <span class="text-emerald-400">AVENTURAS</span></h2>
+            <p class="max-w-2xl mx-auto text-gray-400 text-lg font-medium">Filtra y explora los reportes completos de nuestras excursiones, con fotografías, lugares y fechas exactas.</p>
+            
+            <!-- Sistema Visual de Categorías -->
+            <div class="flex flex-wrap items-center justify-center gap-3 pt-8">
+                <button onclick="filterAdventures('all')" class="filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all bg-emerald-500 text-adventure-dark shadow-[0_0_15px_rgba(16,185,129,0.4)]" data-filter="all">Todas</button>
+                <button onclick="filterAdventures('naturaleza')" class="filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all glass-panel text-gray-300 hover:text-emerald-400" data-filter="naturaleza">Naturaleza</button>
+                <button onclick="filterAdventures('trekking')" class="filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all glass-panel text-gray-300 hover:text-emerald-400" data-filter="trekking">Trekking</button>
+                <button onclick="filterAdventures('camping')" class="filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all glass-panel text-gray-300 hover:text-emerald-400" data-filter="camping">Camping</button>
+                <button onclick="filterAdventures('montana')" class="filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all glass-panel text-gray-300 hover:text-emerald-400" data-filter="montana">Montaña</button>
+                <button onclick="filterAdventures('playa')" class="filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all glass-panel text-gray-300 hover:text-emerald-400" data-filter="playa">Playa</button>
+                <button onclick="filterAdventures('vehiculos')" class="filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all glass-panel text-gray-300 hover:text-emerald-400" data-filter="vehiculos">Vehículos 4x4</button>
+                <button onclick="filterAdventures('viajes')" class="filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all glass-panel text-gray-300 hover:text-emerald-400" data-filter="viajes">Viajes</button>
+                <button onclick="filterAdventures('extremo')" class="filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all glass-panel text-gray-300 hover:text-emerald-400" data-filter="extremo">Extremo</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10" id="adventure-grid">
+            <!-- Renderizado vía JS -->
+        </div>
+        
+        <div class="text-center pt-16 reveal">
+            <button class="px-8 py-4 rounded-2xl glass-panel text-white font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all border border-white/20">
+                MIRA NUESTRAS EXPERIENCIAS <i class="fa-solid fa-plus ml-2"></i>
+            </button>
+        </div>
+    </section>
+
+    <!-- SECCIÓN GALERÍA -->
+    <section id="galeria" class="py-24 bg-adventure-card/60 border-y border-white/5 relative overflow-hidden">
+        <!-- Textura topográfica sutil -->
+        <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-16 reveal">
+                <div class="space-y-4">
+                    <span class="text-emerald-400 font-black uppercase tracking-[0.2em] text-xs"><i class="fa-solid fa-camera"></i> Álbum Visual</span>
+                    <h2 class="font-display font-black text-4xl sm:text-5xl text-white">GALERÍA DE <span class="text-emerald-400">INSTANTES</span></h2>
+                </div>
+                <button onclick="alert('Funcionalidad para cargar más fotos pronto')" class="mt-6 md:mt-0 px-6 py-3 rounded-xl border border-emerald-500/50 text-emerald-400 font-bold text-xs uppercase tracking-widest hover:bg-emerald-500 hover:text-adventure-dark transition-all">
+                    VER GALERÍA COMPLETA
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="gallery-grid">
+                <!-- Renderizado vía JS -->
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN VIDEOS -->
+    <section id="videos" class="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center space-y-4 mb-16 reveal">
+            <span class="text-emerald-400 font-black uppercase tracking-[0.2em] text-xs"><i class="fa-solid fa-film"></i> Producción Audiovisual</span>
+            <h2 class="font-display font-black text-4xl sm:text-5xl text-white">VIDEOS DE <span class="text-emerald-400">EXPEDICIÓN</span></h2>
+            <p class="max-w-xl mx-auto text-gray-400 text-lg font-medium">Revive cada momento, siente la adrenalina y acompáñanos en ruta a través de nuestras cámaras.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10" id="video-grid">
+            <!-- Renderizado vía JS -->
+        </div>
+    </section>
+
+    <!-- SECCIÓN TIENDA ONLINE -->
+    <section id="tienda" class="py-24 bg-gradient-to-b from-adventure-dark to-adventure-card border-y border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center space-y-4 mb-16 reveal">
+                <span class="text-emerald-400 font-black uppercase tracking-[0.2em] text-xs"><i class="fa-solid fa-tags"></i> Merch Oficial</span>
+                <h2 class="font-display font-black text-4xl sm:text-5xl text-white">TIENDA <span class="text-emerald-400">LATITUD7</span></h2>
+                <p class="max-w-xl mx-auto text-gray-400 text-lg font-medium">Vístete para la aventura. Artículos personalizados para llevar nuestra identidad a todas partes.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 reveal" id="store-grid">
+                <!-- Renderizado vía JS -->
+            </div>
+
+            <div class="text-center pt-16 reveal">
+                <button class="px-8 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black text-sm uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 transition-all">
+                    CONOCE LA TIENDA COMPLETA <i class="fa-solid fa-store ml-2"></i>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN DONACIONES -->
+    <section id="donaciones" class="py-24 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 reveal">
+        <div class="bg-gradient-to-br from-amber-900/40 to-adventure-card rounded-[3rem] p-10 sm:p-16 relative overflow-hidden shadow-2xl border border-amber-500/30 text-center">
+            <!-- Glow Naranja de fondo -->
+            <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-amber-500/20 rounded-full blur-[100px] pointer-events-none"></div>
+            <div class="absolute -left-20 -top-20 w-80 h-80 bg-orange-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+            
+            <div class="relative z-10 space-y-6 max-w-3xl mx-auto">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 text-3xl mb-4 border border-amber-500/30">
+                    <i class="fa-solid fa-hand-holding-heart"></i>
+                </div>
+                <h2 class="font-display font-black text-4xl sm:text-5xl text-white tracking-tight">APÓYANOS / DÉJANOS TU <span class="text-amber-400">DONACIÓN</span></h2>
+                <p class="text-gray-300 text-lg leading-relaxed font-medium">
+                    ¿Te gusta lo que hacemos? Ayúdanos a llegar más lejos. Toda donación voluntaria va destinada a mejorar nuestro equipamiento técnico, logística para rutas extremas y para seguir creando contenido gratuito para esta gran comunidad.
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-8">
+                    <button onclick="makeDonation(5000)" class="py-5 rounded-2xl bg-black/40 hover:bg-amber-500 hover:text-adventure-dark transition-all font-display font-black text-2xl text-amber-400 border border-amber-500/30 shadow-lg hover:scale-105">$5.000</button>
+                    <button onclick="makeDonation(15000)" class="py-5 rounded-2xl bg-black/40 hover:bg-amber-500 hover:text-adventure-dark transition-all font-display font-black text-2xl text-amber-400 border border-amber-500/30 shadow-lg hover:scale-105">$15.000</button>
+                    <button onclick="makeDonation(30000)" class="py-5 rounded-2xl bg-black/40 hover:bg-amber-500 hover:text-adventure-dark transition-all font-display font-black text-2xl text-amber-400 border border-amber-500/30 shadow-lg hover:scale-105">$30.000</button>
+                </div>
+                
+                <div class="pt-6">
+                    <button class="px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-adventure-dark font-black text-sm uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:scale-105 transition-all">
+                        APÓYANOS CON OTRO MONTO <i class="fa-solid fa-heart ml-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN SOBRE NOSOTROS -->
+    <section id="nosotros" class="py-24 bg-adventure-card border-y border-white/5 relative overflow-hidden">
+        <!-- Elemento brújula sutil -->
+        <i class="fa-regular fa-compass absolute text-[40rem] text-white/5 -left-40 -top-20 pointer-events-none"></i>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center reveal">
+                <div class="space-y-8">
+                    <div>
+                        <span class="text-emerald-400 font-black uppercase tracking-[0.2em] text-xs"><i class="fa-solid fa-users"></i> Nuestra Historia</span>
+                        <h2 class="font-display font-black text-4xl sm:text-5xl text-white mt-2">SOBRE <span class="text-emerald-400">NOSOTROS</span></h2>
+                    </div>
+                    <div class="space-y-4 text-gray-300 text-lg font-medium leading-relaxed">
+                        <p>
+                            Latitud7 nació de la pasión irrefrenable por explorar lo desconocido. No somos una agencia turística tradicional; somos un grupo de amigos y exploradores dedicados a documentar la belleza agreste de la naturaleza y la vida al aire libre.
+                        </p>
+                        <p>
+                            Nuestra motivación principal es demostrar que no existen límites cuando hay determinación. Compartimos nuestras aventuras para inspirarte a salir de tu zona de confort, respetar el medio ambiente y vivir experiencias que recordarás toda la vida.
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 pt-6">
+                        <div class="glass-panel p-5 rounded-2xl text-center border-l-2 border-emerald-500">
+                            <span class="font-display font-black text-3xl text-emerald-400 block">70+</span>
+                            <span class="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1 block">Expediciones</span>
+                        </div>
+                        <div class="glass-panel p-5 rounded-2xl text-center border-l-2 border-emerald-500">
+                            <span class="font-display font-black text-3xl text-emerald-400 block">15k</span>
+                            <span class="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1 block">Comunidad</span>
+                        </div>
+                        <div class="glass-panel p-5 rounded-2xl text-center border-l-2 border-emerald-500">
+                            <span class="font-display font-black text-3xl text-emerald-400 block">100%</span>
+                            <span class="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1 block">Aventura</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative h-[500px] rounded-[3rem] overflow-hidden glass-panel border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] group">
+                    <img src="https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=1000&q=80" alt="Nuestro Equipo" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-gradient-to-t from-adventure-dark via-transparent opacity-80"></div>
+                    <div class="absolute bottom-10 left-10 text-white">
+                        <span class="font-display font-black text-2xl drop-shadow-lg">El Equipo Latitud7</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN CONTACTO -->
+    <section id="contacto" class="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 reveal">
+            <div class="space-y-8">
+                <div>
+                    <span class="text-emerald-400 font-black uppercase tracking-[0.2em] text-xs"><i class="fa-solid fa-paper-plane"></i> Escríbenos</span>
+                    <h2 class="font-display font-black text-4xl sm:text-5xl text-white mt-2">ÚNETE A LA <span class="text-emerald-400">AVENTURA</span></h2>
+                </div>
+                <p class="text-gray-300 text-lg font-medium leading-relaxed">
+                    ¿Tienes dudas sobre alguna ruta, quieres colaborar con nosotros o proponer una expedición conjunta? Completa el formulario y nos pondremos en contacto contigo rápidamente.
+                </p>
+                <div class="space-y-6 pt-4">
+                    <div class="flex items-center gap-5 text-gray-300 group">
+                        <div class="w-14 h-14 rounded-2xl glass-panel flex items-center justify-center text-emerald-400 text-2xl group-hover:bg-emerald-500 group-hover:text-adventure-dark transition-colors"><i class="fa-solid fa-envelope"></i></div>
+                        <div>
+                            <span class="text-xs text-gray-500 uppercase font-black tracking-widest block">Correo Electrónico</span>
+                            <span class="font-bold text-white text-lg">contacto@latitud7.com</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-5 text-gray-300 group">
+                        <div class="w-14 h-14 rounded-2xl glass-panel flex items-center justify-center text-emerald-400 text-2xl group-hover:bg-emerald-500 group-hover:text-adventure-dark transition-colors"><i class="fa-solid fa-location-dot"></i></div>
+                        <div>
+                            <span class="text-xs text-gray-500 uppercase font-black tracking-widest block">Ubicación Base</span>
+                            <span class="font-bold text-white text-lg">Rutas del Sur, Chile</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-[#111827] to-black p-10 rounded-[3rem] shadow-2xl border border-white/5 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-bl-full pointer-events-none"></div>
+                <form onsubmit="handleContact(event)" class="space-y-6 relative z-10">
+                    <div>
+                        <label class="block text-xs font-black uppercase tracking-widest text-emerald-400 mb-2">Tu Nombre</label>
+                        <input type="text" required class="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 text-white focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Ej. Carlos Soto">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black uppercase tracking-widest text-emerald-400 mb-2">Correo Electrónico</label>
+                        <input type="email" required class="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 text-white focus:outline-none focus:border-emerald-500 transition-colors" placeholder="correo@ejemplo.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black uppercase tracking-widest text-emerald-400 mb-2">Mensaje</label>
+                        <textarea rows="4" required class="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 text-white focus:outline-none focus:border-emerald-500 transition-colors" placeholder="¿Qué tienes en mente?..."></textarea>
+                    </div>
+                    <button type="submit" class="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black text-sm uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all mt-4 hover:-translate-y-1">
+                        ENVIAR MENSAJE <i class="fa-solid fa-paper-plane ml-2"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-black py-16 text-center text-gray-500 text-sm border-t border-white/5 relative">
+        <div class="max-w-7xl mx-auto px-4 space-y-8">
+            <div class="flex items-center justify-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-amber-500 flex items-center justify-center text-white"><i class="fa-solid fa-compass text-xl"></i></div>
+                <span class="font-display font-black text-3xl tracking-widest text-white">LATITUD<span class="text-emerald-400">7</span></span>
+            </div>
+            <div class="flex justify-center gap-6">
+                <a href="#" class="hover:text-emerald-400 transition-colors"><i class="fa-brands fa-instagram text-xl"></i></a>
+                <a href="#" class="hover:text-emerald-400 transition-colors"><i class="fa-brands fa-youtube text-xl"></i></a>
+                <a href="#" class="hover:text-emerald-400 transition-colors"><i class="fa-brands fa-tiktok text-xl"></i></a>
+            </div>
+            <p class="font-medium">© 2026 Latitud7. Todos los derechos reservados. Diseñado para verdaderos exploradores.</p>
+        </div>
+    </footer>
+
+    <!-- MODAL DE ACCESO / LOGIN (Google GSI) -->
+    <div id="auth-modal" class="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full rounded-[2rem] p-10 border border-emerald-500/20 shadow-[0_0_40px_rgba(16,185,129,0.1)] relative space-y-8 reveal active">
+            <button onclick="closeAuthModal()" class="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/5 text-white flex items-center justify-center hover:bg-red-500 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="text-center space-y-3">
+                <div class="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-400 mx-auto flex items-center justify-center text-3xl mb-2">
+                    <i class="fa-solid fa-user-astronaut"></i>
+                </div>
+                <h3 class="font-display font-black text-3xl text-white tracking-tight">ÚNETE A LA RED</h3>
+                <p class="text-gray-400 text-sm font-medium">Inicia sesión para comprar, comentar y ser parte.</p>
+            </div>
+
+            <!-- Botón Real de Google -->
+            <div id="g_id_onload"
+                 data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+                 data-callback="handleGoogleResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div class="flex justify-center">
+                <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="center"></div>
+            </div>
+
+            <div class="flex items-center gap-4 text-gray-600 text-[10px] uppercase font-black tracking-widest">
+                <div class="flex-grow h-px bg-white/10"></div> O USA TU CORREO <div class="flex-grow h-px bg-white/10"></div>
+            </div>
+
+            <form onsubmit="loginWithEmail(event)" class="space-y-4">
+                <input type="email" id="auth-email" required placeholder="tucorreo@ejemplo.com" class="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                <input type="password" id="auth-pass" required placeholder="Contraseña" class="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/5 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                <button type="submit" class="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]">Entrar</button>
+            </form>
+            <p class="text-[10px] text-gray-500 text-center uppercase font-bold tracking-wider">💡 Tip: Usa <span class="text-emerald-400">admin@latitud7.com</span> para activar el Panel de Control Maestro.</p>
+        </div>
+    </div>
+
+    <!-- MODAL DE DETALLE DE AVENTURA -->
+    <div id="adventure-modal" class="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="glass-panel max-w-3xl w-full rounded-[2rem] overflow-hidden border border-white/10 relative shadow-2xl reveal active">
+            <button onclick="closeAdventureModal()" class="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-black/50 backdrop-blur text-white flex items-center justify-center hover:bg-red-500 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <div class="h-64 sm:h-96 w-full relative">
+                <img id="modal-img" src="" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent"></div>
+            </div>
+            <div class="p-8 sm:p-12 space-y-6 bg-[#111827] relative -mt-4">
+                <div class="flex flex-wrap items-center gap-4">
+                    <span id="modal-cat" class="px-3 py-1 bg-emerald-500 text-adventure-dark font-black text-[10px] uppercase tracking-widest rounded-lg">Categoría</span>
+                    <span id="modal-date" class="text-gray-400 text-xs font-bold uppercase tracking-wider"><i class="fa-regular fa-calendar text-emerald-400"></i> Fecha</span>
+                    <span id="modal-location" class="text-emerald-400 text-xs font-bold uppercase tracking-wider"><i class="fa-solid fa-location-dot"></i> Lugar</span>
+                </div>
+                <h3 id="modal-title" class="font-display font-black text-3xl sm:text-4xl text-white"></h3>
+                <p id="modal-description" class="text-gray-300 text-lg leading-relaxed font-medium"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIGHTBOX GALERÍA -->
+    <div id="lightbox-modal" class="fixed inset-0 z-[70] bg-black/95 backdrop-blur-md hidden items-center justify-center p-4" onclick="closeLightbox()">
+        <div class="relative max-w-6xl w-full flex flex-col items-center justify-center reveal active" onclick="event.stopPropagation()">
+            <button onclick="closeLightbox()" class="absolute -top-16 right-0 text-white/50 hover:text-white text-4xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+            <img id="lightbox-img" class="max-w-full max-h-[85vh] rounded-xl object-contain shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-white/5">
+            <p id="lightbox-caption" class="text-center text-emerald-400 font-bold uppercase tracking-widest mt-6 text-sm"></p>
+        </div>
+    </div>
+
+    <!-- CARRITO DE COMPRAS LATERAL -->
+    <div id="cart-drawer" class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm hidden justify-end">
+        <div class="w-full max-w-md bg-gradient-to-b from-adventure-dark to-[#0a0f18] h-full shadow-2xl flex flex-col border-l border-white/10 p-8 transform transition-transform translate-x-0">
+            <div class="flex items-center justify-between pb-6 border-b border-white/10">
+                <h3 class="font-display font-black text-2xl text-white flex items-center gap-3"><i class="fa-solid fa-cart-shopping text-emerald-400"></i> EQUIPAJE</h3>
+                <button onclick="toggleCart()" class="w-10 h-10 rounded-full bg-white/5 text-white flex items-center justify-center hover:bg-white/10 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="cart-items" class="flex-grow overflow-y-auto py-6 space-y-4">
+                <p class="text-gray-500 text-center py-12 font-medium">No has agregado equipo a tu mochila.</p>
+            </div>
+            <div class="pt-6 border-t border-white/10 space-y-6">
+                <div class="flex items-center justify-between text-xl font-black text-white">
+                    <span>TOTAL:</span>
+                    <span id="cart-total" class="text-emerald-400">$0 CLP</span>
+                </div>
+                <button onclick="checkout()" class="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all">FINALIZAR COMPRA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT PRINCIPAL -->
+    <script>
+        // 1. ANIMACIONES DE SCROLL (Intersection Observer)
+        document.addEventListener("DOMContentLoaded", function() {
+            const reveals = document.querySelectorAll(".reveal");
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add("active");
+                    }
+                });
+            }, { threshold: 0.1 });
+            reveals.forEach((reveal) => observer.observe(reveal));
+        });
+
+        // 2. BASE DE DATOS LOCAL (LocalStorage)
+        let adventures = JSON.parse(localStorage.getItem('latitud7_adv')) || [
+            { id: 1, title: 'Ascenso al Volcán Osorno', category: 'montana', location: 'Región de Los Lagos, Chile', date: '2026-01-15', description: 'Una cumbre exigente con vistas panorámicas increíbles hacia los lagos del sur.', img: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80' },
+            { id: 2, title: 'Noche bajo la Vía Láctea', category: 'camping', location: 'Desierto de Atacama', date: '2025-11-20', description: 'Acampamos en el lugar más árido del mundo para registrar la bóveda celeste en su máximo esplendor.', img: 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?auto=format&fit=crop&w=800&q=80' },
+            { id: 3, title: 'Ruta 4x4 Off-Road Costera', category: 'vehiculos', location: 'Dunas de Putú', date: '2026-02-10', description: 'Llevamos nuestras máquinas al límite cruzando bancos de arena junto al océano Pacífico.', img: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80' }
+        ];
+
+        let products = JSON.parse(localStorage.getItem('latitud7_prod')) || [
+            { id: 1, name: 'Polera Dry-Fit Latitud7', price: 24990, desc: 'Secado rápido, ideal para trekking intenso.', img: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80' },
+            { id: 2, name: 'Polerón Térmico Expedición', price: 44990, desc: 'Aislamiento superior para la montaña.', img: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=600&q=80' },
+            { id: 3, name: 'Gorro Trucker Classic', price: 14990, desc: 'Protección solar y estilo para la ruta.', img: 'https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?auto=format&fit=crop&w=600&q=80' }
+        ];
+
+        let gallery = JSON.parse(localStorage.getItem('latitud7_gal')) || [
+            { id: 1, img: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80', caption: 'Valle de los Cóndores' },
+            { id: 2, img: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=600&q=80', caption: 'Espejo de Agua Cristalina' },
+            { id: 3, img: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=600&q=80', caption: 'Cielo Estrellado' },
+            { id: 4, img: 'https://images.unsplash.com/photo-1426604966848-d7adacbd02bf?auto=format&fit=crop&w=600&q=80', caption: 'Senderos del Sur' }
+        ];
+
+        let videos = JSON.parse(localStorage.getItem('latitud7_vids')) || [
+            { id: 1, title: 'Cruzando los Andes del Sur', subtitle: 'Temporada 2 • Ep 1', img: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80' },
+            { id: 2, title: '¿Qué llevar en tu mochila?', subtitle: 'Tips de Supervivencia', img: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80' }
+        ];
+
+        let currentUser = JSON.parse(localStorage.getItem('latitud7_user')) || null;
+
+        // 3. INICIALIZACIÓN
+        window.onload = () => {
+            renderAdventures(adventures);
+            renderProducts(products);
+            renderGallery(gallery);
+            renderVideos(videos);
+            checkAuthUI();
+        };
+
+        // 4. AUTENTICACIÓN
+        function handleGoogleResponse(response) {
+            const responsePayload = parseJwt(response.credential);
+            authenticateUser(responsePayload.email);
+        }
+
+        function parseJwt(token) {
+            let base64Url = token.split('.')[1];
+            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            let jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            return JSON.parse(jsonPayload);
+        }
+
+        function loginWithEmail(e) {
+            e.preventDefault();
+            authenticateUser(document.getElementById('auth-email').value);
+        }
+
+        function authenticateUser(email) {
+            const isAdmin = email.toLowerCase().includes('admin') || email.toLowerCase() === 'contacto@latitud7.com';
+            currentUser = { email, isAdmin };
+            localStorage.setItem('latitud7_user', JSON.stringify(currentUser));
+            closeAuthModal();
+            checkAuthUI();
+            
+            // Re-renderizar para mostrar botones de basura si es admin
+            renderAdventures(adventures);
+            renderProducts(products);
+            renderGallery(gallery);
+            renderVideos(videos);
+        }
+
+        function checkAuthUI() {
+            const authContainer = document.getElementById('auth-container');
+            const adminLink = document.getElementById('admin-nav-link');
+            const mobileAdminLink = document.getElementById('mobile-admin-link');
+            const adminPanel = document.getElementById('admin-panel');
+
+            if(currentUser) {
+                authContainer.innerHTML = `
+                    <div class="flex items-center gap-3 px-4 py-2 rounded-xl glass-panel text-xs font-bold text-white uppercase tracking-wider">
+                        <i class="fa-solid fa-circle-user text-emerald-400 text-lg"></i>
+                        <span class="hidden sm:inline">${currentUser.email.split('@')[0]}</span>
+                        <button onclick="logout()" class="ml-2 text-red-400 hover:text-red-500 hover:scale-110 transition-transform"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </div>`;
+                if(currentUser.isAdmin) {
+                    adminLink.classList.remove('hidden');
+                    mobileAdminLink.classList.remove('hidden');
+                    adminPanel.classList.remove('hidden');
+                    document.getElementById('admin-email-display').innerText = currentUser.email;
+                } else {
+                    adminLink.classList.add('hidden');
+                    mobileAdminLink.classList.add('hidden');
+                    adminPanel.classList.add('hidden');
+                }
+            } else {
+                authContainer.innerHTML = `<button onclick="openAuthModal()" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-adventure-dark font-black text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 uppercase tracking-wide"><i class="fa-solid fa-user"></i> <span class="hidden sm:inline">ÚNETE</span></button>`;
+                adminLink.classList.add('hidden');
+                mobileAdminLink.classList.add('hidden');
+                adminPanel.classList.add('hidden');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('latitud7_user');
+            checkAuthUI();
+            renderAdventures(adventures);
+            renderProducts(products);
+            renderGallery(gallery);
+            renderVideos(videos);
+        }
+        function logoutAdmin() { logout(); window.location.href = "#inicio"; }
+
+        // 5. RENDERIZADO DE SECCIONES (Con estilo Cinematográfico y Botones Admin)
+        function renderAdventures(list) {
+            const grid = document.getElementById('adventure-grid');
+            grid.innerHTML = '';
+            list.forEach(adv => {
+                grid.innerHTML += `
+                    <div class="adventure-card glass-panel rounded-[2rem] overflow-hidden group shadow-[0_10px_30px_rgba(0,0,0,0.5)] hover:border-emerald-500/50 transition-all duration-500 reveal active" data-category="${adv.category}">
+                        <div class="relative h-64 overflow-hidden">
+                            <img src="${adv.img}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                            <div class="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent opacity-80"></div>
+                            <span class="absolute top-5 left-5 px-3 py-1 bg-emerald-500 text-adventure-dark font-black text-[10px] uppercase tracking-widest rounded-lg shadow-lg">${adv.category}</span>
+                        </div>
+                        <div class="p-8 space-y-4 relative -mt-6">
+                            <div class="flex items-center gap-3 text-[10px] uppercase font-bold tracking-widest text-gray-400">
+                                <span><i class="fa-regular fa-calendar text-emerald-400 mr-1"></i> ${adv.date || 'Reciente'}</span>
+                                <span><i class="fa-solid fa-location-dot text-emerald-400 mr-1"></i> ${adv.location}</span>
+                            </div>
+                            <h3 class="font-display font-black text-2xl text-white leading-tight">${adv.title}</h3>
+                            <p class="text-gray-400 text-sm font-medium line-clamp-2">${adv.description}</p>
+                            <div class="pt-4 flex justify-between items-center border-t border-white/5 mt-4">
+                                <button onclick="openAdventureModal('${adv.title}', '${adv.location}', '${adv.date || ''}', '${adv.description}', '${adv.img}', '${adv.category}')" class="text-emerald-400 font-bold text-xs uppercase tracking-widest hover:text-emerald-300 transition-colors flex items-center gap-2">Ver Detalles <i class="fa-solid fa-arrow-right"></i></button>
+                                ${currentUser && currentUser.isAdmin ? `<button onclick="deleteItem('adv', ${adv.id})" class="w-8 h-8 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"><i class="fa-solid fa-trash text-xs"></i></button>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderProducts(list) {
+            const grid = document.getElementById('store-grid');
+            grid.innerHTML = '';
+            list.forEach((prod, idx) => {
+                grid.innerHTML += `
+                    <div class="glass-panel rounded-[2rem] overflow-hidden flex flex-col justify-between shadow-2xl group reveal active">
+                        <div class="relative h-72 bg-gradient-to-b from-white/5 to-transparent p-8 flex items-center justify-center">
+                            <img src="${prod.img}" class="w-full h-full object-contain drop-shadow-2xl group-hover:scale-110 transition-transform duration-500">
+                        </div>
+                        <div class="p-8 space-y-3">
+                            <h3 class="font-display font-black text-xl text-white uppercase tracking-wide leading-tight">${prod.name}</h3>
+                            <p class="text-gray-400 text-xs font-medium">${prod.desc}</p>
+                            <div class="flex justify-between items-end pt-6 border-t border-white/5">
+                                <span class="font-display font-black text-2xl text-emerald-400">$${prod.price.toLocaleString()}</span>
+                                <div class="flex gap-2">
+                                    <button onclick="addToCart('${prod.name}', ${prod.price})" class="w-12 h-12 flex items-center justify-center bg-emerald-500 text-adventure-dark font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:-translate-y-1"><i class="fa-solid fa-cart-plus text-lg"></i></button>
+                                    ${currentUser && currentUser.isAdmin ? `<button onclick="deleteItem('prod', ${idx})" class="w-12 h-12 flex items-center justify-center bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all"><i class="fa-solid fa-trash"></i></button>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderGallery(list) {
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = '';
+            list.forEach((item, idx) => {
+                grid.innerHTML += `
+                    <div class="relative h-80 rounded-3xl overflow-hidden group cursor-pointer shadow-xl reveal active">
+                        <img src="${item.img}" onclick="openLightbox('${item.img}', '${item.caption}')" class="w-full h-full object-cover group-hover:scale-110 group-hover:rotate-1 transition-all duration-700">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-90 transition-opacity"></div>
+                        <div class="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between translate-y-4 group-hover:translate-y-0 transition-transform">
+                            <span class="text-white font-bold text-sm uppercase tracking-widest border-l-2 border-emerald-400 pl-3">${item.caption}</span>
+                            ${currentUser && currentUser.isAdmin ? `<button onclick="deleteItem('gal', ${idx})" class="w-10 h-10 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center backdrop-blur-md hover:bg-red-500 hover:text-white transition-all"><i class="fa-solid fa-trash"></i></button>` : `<div class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-emerald-400"><i class="fa-solid fa-expand"></i></div>`}
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderVideos(list) {
+            const grid = document.getElementById('video-grid');
+            grid.innerHTML = '';
+            list.forEach((vid, idx) => {
+                grid.innerHTML += `
+                    <div class="glass-panel rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative group reveal active border border-white/5 hover:border-emerald-500/30 transition-colors">
+                        <div class="relative aspect-video bg-black flex items-center justify-center">
+                            <img src="${vid.img}" class="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-500">
+                            <button onclick="alert('Reproduciendo video en el reproductor principal...')" class="absolute w-24 h-24 rounded-full bg-emerald-500/90 text-adventure-dark flex items-center justify-center text-4xl shadow-[0_0_30px_rgba(16,185,129,0.5)] group-hover:scale-110 transition-transform backdrop-blur-sm"><i class="fa-solid fa-play ml-2"></i></button>
+                        </div>
+                        <div class="p-8 flex justify-between items-center bg-gradient-to-t from-[#0a0f18] to-transparent absolute bottom-0 left-0 right-0">
+                            <div>
+                                <span class="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-1 block">${vid.subtitle}</span>
+                                <h3 class="font-display font-black text-2xl text-white">${vid.title}</h3>
+                            </div>
+                            ${currentUser && currentUser.isAdmin ? `<button onclick="deleteItem('vid', ${idx})" class="w-12 h-12 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center backdrop-blur-md"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        </div>
+                    </div>`;
+            });
+        }
+
+        // 6. ADMINISTRACIÓN CON SUBIDA LOCAL (FileReader - Base64)
+        function readFileAsDataURL(fileInput, callback) {
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) { callback(e.target.result); };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function adminAddAdventure(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('adv-file');
+            readFileAsDataURL(fileInput, function(base64Image) {
+                adventures.unshift({
+                    id: Date.now(),
+                    title: document.getElementById('adv-title').value,
+                    category: document.getElementById('adv-cat').value,
+                    location: document.getElementById('adv-loc').value,
+                    date: document.getElementById('adv-date').value,
+                    description: document.getElementById('adv-desc').value,
+                    img: base64Image
+                });
+                localStorage.setItem('latitud7_adv', JSON.stringify(adventures));
+                renderAdventures(adventures);
+                e.target.reset();
+                alert("¡Aventura publicada con éxito!");
+            });
+        }
+
+        function adminAddProduct(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('prod-file');
+            readFileAsDataURL(fileInput, function(base64Image) {
+                products.push({
+                    id: Date.now(),
+                    name: document.getElementById('prod-name').value,
+                    price: Number(document.getElementById('prod-price').value),
+                    desc: document.getElementById('prod-desc').value,
+                    img: base64Image
+                });
+                localStorage.setItem('latitud7_prod', JSON.stringify(products));
+                renderProducts(products);
+                e.target.reset();
+                alert("¡Artículo agregado a la tienda!");
+            });
+        }
+
+        function adminAddGallery(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('gal-file');
+            readFileAsDataURL(fileInput, function(base64Image) {
+                gallery.unshift({
+                    id: Date.now(),
+                    img: base64Image,
+                    caption: document.getElementById('gal-cap').value
+                });
+                localStorage.setItem('latitud7_gal', JSON.stringify(gallery));
+                renderGallery(gallery);
+                e.target.reset();
+                alert("¡Foto agregada a la galería visual!");
+            });
+        }
+
+        function adminAddVideo(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('vid-file');
+            readFileAsDataURL(fileInput, function(base64Image) {
+                videos.unshift({
+                    id: Date.now(),
+                    title: document.getElementById('vid-title').value,
+                    subtitle: document.getElementById('vid-sub').value,
+                    img: base64Image
+                });
+                localStorage.setItem('latitud7_vids', JSON.stringify(videos));
+                renderVideos(videos);
+                e.target.reset();
+                alert("¡Video publicado!");
+            });
+        }
+
+        function deleteItem(type, indexOrId) {
+            if(!confirm("¿Seguro que deseas eliminar este elemento permanentemente?")) return;
+            if(type === 'adv') { adventures = adventures.filter(a => a.id !== indexOrId); localStorage.setItem('latitud7_adv', JSON.stringify(adventures)); renderAdventures(adventures); }
+            else if(type === 'prod') { products.splice(indexOrId, 1); localStorage.setItem('latitud7_prod', JSON.stringify(products)); renderProducts(products); }
+            else if(type === 'gal') { gallery.splice(indexOrId, 1); localStorage.setItem('latitud7_gal', JSON.stringify(gallery)); renderGallery(gallery); }
+            else if(type === 'vid') { videos.splice(indexOrId, 1); localStorage.setItem('latitud7_vids', JSON.stringify(videos)); renderVideos(videos); }
+        }
+
+        // 7. FUNCIONES INTERACTIVAS Y MODALES
+        let cart = [];
+        function toggleCart() { document.getElementById('cart-drawer').classList.toggle('hidden'); document.getElementById('cart-drawer').classList.toggle('flex'); }
+        function addToCart(name, price) {
+            if(!currentUser) { alert("¡Únete a la red iniciando sesión para poder comprar!"); openAuthModal(); return; }
+            cart.push({ name, price });
+            updateCartUI();
+            toggleCart();
+        }
+        function updateCartUI() {
+            document.getElementById('cart-badge').innerText = cart.length;
+            const container = document.getElementById('cart-items');
+            if(cart.length === 0) { container.innerHTML = '<p class="text-gray-500 text-center py-12 font-medium">No has agregado equipo a tu mochila.</p>'; document.getElementById('cart-total').innerText = '$0 CLP'; return; }
+            let html = '', total = 0;
+            cart.forEach((item, i) => { 
+                total += item.price; 
+                html += `<div class="flex justify-between items-center bg-black/40 p-4 rounded-xl border border-white/5"><div class="flex flex-col"><h4 class="font-bold text-white text-sm uppercase tracking-wide">${item.name}</h4><span class="text-emerald-400 text-xs font-black">$${item.price.toLocaleString()}</span></div><button onclick="cart.splice(${i},1);updateCartUI()" class="w-8 h-8 rounded-full bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"><i class="fa-solid fa-trash text-xs"></i></button></div>`; 
+            });
+            container.innerHTML = html;
+            document.getElementById('cart-total').innerText = `$${total.toLocaleString()}`;
+        }
+        function checkout() { 
+            if(cart.length === 0) { alert("Tu mochila está vacía."); return;}
+            alert('¡Redirigiendo a la pasarela de pagos segura (Flow / MercadoPago)!'); 
+            cart = []; updateCartUI(); toggleCart(); 
+        }
+
+        function openAuthModal() { document.getElementById('auth-modal').classList.remove('hidden'); document.getElementById('auth-modal').classList.add('flex'); }
+        function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); document.getElementById('auth-modal').classList.remove('flex'); }
+        
+        function openAdventureModal(title, loc, date, desc, img, cat) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-location').innerHTML = `<i class="fa-solid fa-location-dot"></i> ${loc}`;
+            document.getElementById('modal-date').innerHTML = `<i class="fa-regular fa-calendar"></i> ${date}`;
+            document.getElementById('modal-cat').innerText = cat;
+            document.getElementById('modal-description').innerText = desc;
+            document.getElementById('modal-img').src = img;
+            document.getElementById('adventure-modal').classList.remove('hidden');
+            document.getElementById('adventure-modal').classList.add('flex');
+        }
+        function closeAdventureModal() { document.getElementById('adventure-modal').classList.add('hidden'); document.getElementById('adventure-modal').classList.remove('flex'); }
+        
+        function openLightbox(src, cap) {
+            document.getElementById('lightbox-img').src = src;
+            document.getElementById('lightbox-caption').innerText = cap;
+            document.getElementById('lightbox-modal').classList.remove('hidden');
+            document.getElementById('lightbox-modal').classList.add('flex');
+        }
+        function closeLightbox() { document.getElementById('lightbox-modal').classList.add('hidden'); document.getElementById('lightbox-modal').classList.remove('flex'); }
+        
+        function filterAdventures(cat) {
+            document.querySelectorAll('.adventure-card').forEach(card => {
+                if(cat === 'all' || card.getAttribute('data-category') === cat) {
+                    card.style.display = 'block';
+                    setTimeout(() => card.classList.add('active'), 50);
+                } else {
+                    card.style.display = 'none';
+                    card.classList.remove('active');
+                }
+            });
+            // Estilos de botones
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if(btn.getAttribute('data-filter') === cat) {
+                    btn.className = "filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all bg-emerald-500 text-adventure-dark shadow-[0_0_15px_rgba(16,185,129,0.4)]";
+                } else {
+                    btn.className = "filter-btn px-6 py-2.5 rounded-full font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all glass-panel text-gray-300 hover:text-emerald-400";
+                }
+            });
+        }
+        
+        function makeDonation(amount) { alert(`¡Muchísimas gracias por tu generoso aporte de $${amount.toLocaleString()}! Esto nos ayuda a seguir explorando.`); }
+        function handleContact(e) { e.preventDefault(); alert('¡Mensaje enviado con éxito! Nos conectaremos contigo pronto en la ruta.'); e.target.reset(); }
+        function toggleMobileMenu() { document.getElementById('mobile-menu').classList.toggle('hidden'); }
+    </script>
+</body>
+</html>
