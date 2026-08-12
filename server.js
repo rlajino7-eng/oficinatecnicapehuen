@@ -1,4 +1,4 @@
-// --- GESTIÓN DE USUARIOS EN GOOGLE DRIVE (usuarios.json) ---
+// Funciones para leer y guardar usuarios directamente en Google Drive
 async function obtenerUsuariosDrive() {
   try {
     const res = await drive.files.list({
@@ -10,6 +10,7 @@ async function obtenerUsuariosDrive() {
       const fileContent = await drive.files.get({ fileId: fileId, alt: 'media' });
       return fileContent.data;
     } else {
+      // Si no existe el archivo aún, creamos uno con los administradores por defecto
       const defaultUsers = [
         { id: 1, email: 'admin@pehuen.cl', password: 'Pehuen2026*', rol: 'admin', nombre: 'Admin Técnico' },
         { id: 2, email: 'ingeniero1@pehuen.cl', password: 'pehuen123', rol: 'ingeniero', nombre: 'Ingeniero Montaje' }
@@ -51,6 +52,7 @@ async function guardarUsuariosDrive(usuarios) {
   }
 }
 
+// Rutas de autenticación y gestión conectadas a Google Drive
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const usuarios = await obtenerUsuariosDrive();
