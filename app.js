@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrarApp(usuarioLogueado);
     }
 
-    // --- LOGIN ---
     document.getElementById('formLogin').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('emailLogin').value;
@@ -29,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- SUBIR ARCHIVO DENTRO DE LA CARPETA ACTIVA ---
     const formSubir = document.getElementById('formSubir');
     if (formSubir) {
         formSubir.addEventListener('submit', async (e) => {
@@ -39,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const formData = new FormData();
             formData.append('archivo', input.files[0]);
-            formData.append('carpeta', carpetaSeleccionada); // Envía la carpeta en la que estás metido
+            formData.append('carpeta', carpetaSeleccionada);
 
             const btn = formSubir.querySelector('.btn-upload');
             btn.textContent = 'Subiendo...';
@@ -49,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     input.value = '';
                     document.getElementById('nombreSeleccionado').textContent = 'Ningún archivo...';
-                    cargarArchivos(); // Recarga y mantiene la vista dentro de la carpeta
+                    cargarArchivos();
                 } else alert('Error: ' + data.error);
             } catch (err) { alert('Error de red'); }
             btn.textContent = '⬆ Subir aquí';
@@ -60,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- CREAR USUARIOS ---
     const formUsuario = document.getElementById('formUsuario');
     if (formUsuario) {
         formUsuario.addEventListener('submit', async (e) => {
@@ -111,7 +108,6 @@ async function cargarArchivos() {
         const res = await fetch('/api/archivos');
         todosLosArchivos = await res.json();
         
-        // Si estamos viendo una carpeta, refrescamos su tabla en tiempo real
         if(carpetaSeleccionada) {
             renderizarTablaCarpeta();
         } else {
@@ -120,23 +116,42 @@ async function cargarArchivos() {
     } catch (err) { console.error('Error cargando archivos', err); }
 }
 
-// Dibuja las tarjetas de carpetas en la pantalla principal
+// --- NUEVO: FUNCIÓN PARA CREAR CARPETA DESDE EL BOTÓN ---
+async function crearNuevaCarpeta() {
+    const nombre = prompt('Ingresa el nombre de la nueva carpeta (Ej: Recursos Humanos, Oficina Técnica):');
+    if (!nombre || !nombre.trim()) return;
+
+    try {
+        const res = await fetch('/api/carpetas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre: nombre.trim() })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('¡Carpeta creada correctamente!');
+            cargarArchivos(); // Recarga para que aparezca la tarjeta de inmediato
+        } else {
+            alert('No se pudo crear la carpeta.');
+        }
+    } catch (err) {
+        alert('Error de conexión al crear la carpeta.');
+    }
+}
+
 function renderizarGrillaCarpetas() {
     const contenedor = document.getElementById('grillaCarpetas');
     contenedor.innerHTML = '';
 
-    // Agrupar carpetas y contar archivos
     const mapaCarpetas = {};
+    // Asegurar que exista "General" por defecto
+    mapaCarpetas['General'] = 0;
+
     todosLosArchivos.forEach(a => {
         const carp = a.carpeta || 'General';
         if(!mapaCarpetas[carp]) mapaCarpetas[carp] = 0;
         mapaCarpetas[carp]++;
     });
-
-    // Asegurar que al menos aparezca "General" u otras por defecto
-    if(Object.keys(mapaCarpetas).length === 0) {
-        mapaCarpetas['General'] = 0;
-    }
 
     Object.keys(mapaCarpetas).forEach(nombreCarpeta => {
         const cantidad = mapaCarpetas[nombreCarpeta];
@@ -149,28 +164,24 @@ function renderizarGrillaCarpetas() {
     });
 }
 
-// Al hacer clic en una tarjeta de carpeta
 function abrirCarpeta(nombreCarpeta) {
     carpetaSeleccionada = nombreCarpeta;
     document.getElementById('tituloCarpetaActiva').textContent = `📁 Carpeta: ${nombreCarpeta}`;
     document.getElementById('inputCarpetaActual').value = nombreCarpeta;
     
-    // Cambiar pantallas visuales
     document.getElementById('vistaCarpetasContainer').style.display = 'none';
     document.getElementById('vistaArchivosContainer').style.display = 'block';
     
     renderizarTablaCarpeta();
 }
 
-// Botón para volver a la pantalla de tarjetas
-function volverAColinas() {
+function volverACarpetas() {
     carpetaSeleccionada = '';
     document.getElementById('vistaArchivosContainer').style.display = 'none';
     document.getElementById('vistaCarpetasContainer').style.display = 'block';
     renderizarGrillaCarpetas();
 }
 
-// Dibuja la tabla de archivos filtrada solo para la carpeta activa
 function renderizarTablaCarpeta() {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
     const filtroTipo = document.getElementById('filtroCategoria').value;
