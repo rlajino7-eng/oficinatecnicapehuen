@@ -17,6 +17,7 @@ oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Usuarios fijos y seguros (evita que el servidor falle al reiniciarse)
 let usuariosAutorizados = [
   { id: 1, email: 'admin@pehuen.cl', password: 'Pehuen2026*', rol: 'admin', nombre: 'Admin Técnico' },
   { id: 2, email: 'ingeniero1@pehuen.cl', password: 'pehuen123', rol: 'ingeniero', nombre: 'Ingeniero Montaje' }
@@ -64,7 +65,7 @@ app.post('/api/carpetas', async (req, res) => {
   }
 });
 
-// LISTAR ELEMENTOS
+// LISTAR ELEMENTOS (Carpetas y Archivos para la Web)
 app.get('/api/elementos', async (req, res) => {
   try {
     const response = await drive.files.list({
@@ -114,7 +115,7 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   }
 });
 
-// ELIMINAR ARCHIVO O CARPETA (ADMIN)
+// ELIMINAR ARCHIVO O CARPETA
 app.delete('/api/elementos/:id', async (req, res) => {
   try {
     await drive.files.delete({ fileId: req.params.id });
@@ -124,7 +125,7 @@ app.delete('/api/elementos/:id', async (req, res) => {
   }
 });
 
-// RENOMBRAR ARCHIVO O CARPETA (ADMIN)
+// RENOMBRAR ARCHIVO O CARPETA
 app.put('/api/elementos/:id/renombrar', async (req, res) => {
   try {
     const { nuevoNombre } = req.body;
