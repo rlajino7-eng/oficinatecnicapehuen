@@ -1,5 +1,5 @@
-let todosLosArchivos = [];
-let carpetaSeleccionada = '';
+let todosLosElementos = [];
+let historialRuta = [{ id: '', nombre: 'Directorio Principal' }]; // ID raíz por defecto
 
 document.addEventListener('DOMContentLoaded', () => {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
@@ -35,9 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const input = document.getElementById('archivoInput');
             if (!input.files[0]) return;
 
+            const carpetaActualId = historialRuta[historialRuta.length - 1].id;
+
             const formData = new FormData();
             formData.append('archivo', input.files[0]);
-            formData.append('carpeta', carpetaSeleccionada);
+            formData.append('parentId', carpetaActualId);
 
             const btn = formSubir.querySelector('.btn-upload');
             btn.textContent = 'Subiendo...';
@@ -47,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     input.value = '';
                     document.getElementById('nombreSeleccionado').textContent = 'Ningún archivo...';
-                    cargarArchivos();
+                    cargarElementos();
                 } else alert('Error: ' + data.error);
             } catch (err) { alert('Error de red'); }
             btn.textContent = '⬆ Subir aquí';
@@ -80,9 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('passUser').value = 'pehuen123';
                     cargarUsuarios();
                 }
-            } catch (error) {
-                alert('Error al agregar usuario.');
-            }
+            } catch (error) { alert('Error al agregar usuario.'); }
         });
     }
 });
@@ -95,7 +95,7 @@ function mostrarApp(usuario) {
         document.getElementById('btnAdmin').style.display = 'inline-block';
         cargarUsuarios();
     }
-    cargarArchivos();
+    cargarElementos();
 }
 
 function cerrarSesion() {
@@ -103,100 +103,72 @@ function cerrarSesion() {
     location.reload();
 }
 
-async function cargarArchivos() {
+async function cargarElementos() {
     try {
-        const res = await fetch('/api/archivos');
-        todosLosArchivos = await res.json();
-        
-        if(carpetaSeleccionada) {
-            renderizarTablaCarpeta();
-        } else {
-            renderizarGrillaCarpetas();
-        }
-    } catch (err) { console.error('Error cargando archivos', err); }
+        const res = await fetch('/api/elementos');
+        todosLosElementos = await res.json();
+        renderizarDirectorioActual();
+    } catch (err) { console.error('Error cargando elementos', err); }
 }
 
-// --- NUEVO: FUNCIÓN PARA CREAR CARPETA DESDE EL BOTÓN ---
-async function crearNuevaCarpeta() {
-    const nombre = prompt('Ingresa el nombre de la nueva carpeta (Ej: Recursos Humanos, Oficina Técnica):');
-    if (!nombre || !nombre.trim()) return;
+// RENDERIZAR LA VISTA SEGÚN LA CARPETA ACTUAL DONDE ESTÁS PARADO
+function renderizarDirectorioActual() {
+    const carpetaActual = historialRuta[historialRuta.length - 1];
+    
+    document.getElementById('tituloDirectorio').textContent = `📁 ${carpetaActual.nombre}`;
+    
+    const btnVolver = document.getElementById('btnVolverAtras');
+    if (historialRuta.length > 1) {
+        btnVolver.style.display = 'inline-block';
+    } else {
+        btnVolver.style.display = 'none';
+    }
 
-    try {
-        const res = await fetch('/api/carpetas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre: nombre.trim() })
+    const grilla = document.getElementById('grillaDirectorio');
+    const contenedorTabla = document.getElementById('contenedorTablaArchivos');
+    const listaArchivos = document.getElementById('listaArchivosCarpeta');
+
+    grilla.innerHTML = '';
+    listaArchivos.innerHTML = '';
+
+    // Filtrar subcarpetas y archivos que están en este nivel exacto
+    // Nota: Si estamos en la raíz (id == ''), comparamos con los que tienen parentId igual al FOLDER_ID del servidor o sin padre directo
+    const subcarpetas = todosLosElementos.filter(e => e.esCarpeta && (carpetaActual.id === '' ? (e.parentId === todosLosElementos.find(x=>x.id === e.id)?.parentId) : e.parentId === carpetaActual.id));
+    
+    // Como la raíz puede tener IDs variables devueltos por Drive, resolvemos el nivel raíz de forma inteligente:
+    let elementosEnNivel = [];
+    if(carpetaActual.id === '') {
+        // En la raíz mostramos las carpetas cuyo padre directo es el ID principal de Drive o la raíz del listado
+        const idsPrimarios = todosLosElementos.filter(e => e.esCarpeta).map(e => e.parentId);
+        const raizIdReal = idsPrimarios[0] || ''; 
+        elementosEnNivel = todosLosElementos.filter(e => e.parentId === raizIdReal || e.parentId === '');
+    } else {
+        elementosEnNivel = todosLosElementos.filter(e => e.parentId === carpetaActual.id);
+    }
+
+    const carpetasFiltradas = elementosEnNivel.filter(e => e.esCarpeta);
+    const archivosFiltrados = elementosEnNivel.filter(e => !e.esCarpeta);
+
+    // Dibujar Tarjetas de Carpetas
+    if (carpetasFiltradas.length === 0 && archivosFiltrados.length === 0) {
+        grilla.innerHTML = '<p style="color: #64748b; grid-column: 1/-1;">Esta carpeta está vacía. Crea una subcarpeta o sube un archivo abajo.</p>';
+    } else {
+        carpetasFiltradas.forEach(c => {
+            grilla.innerHTML += `
+                <div class="folder-card" onclick="entrarCarpeta('${c.id}', '${c.name}')">
+                    <div class="folder-icon">📁</div>
+                    <h3>${c.name}</h3>
+                    <p>Subcarpeta</p>
+                </div>`;
         });
-        const data = await res.json();
-        if (data.success) {
-            alert('¡Carpeta creada correctamente!');
-            cargarArchivos(); // Recarga para que aparezca la tarjeta de inmediato
-        } else {
-            alert('No se pudo crear la carpeta.');
-        }
-    } catch (err) {
-        alert('Error de conexión al crear la carpeta.');
-    }
-}
-
-function renderizarGrillaCarpetas() {
-    const contenedor = document.getElementById('grillaCarpetas');
-    contenedor.innerHTML = '';
-
-    const mapaCarpetas = {};
-    // Asegurar que exista "General" por defecto
-    mapaCarpetas['General'] = 0;
-
-    todosLosArchivos.forEach(a => {
-        const carp = a.carpeta || 'General';
-        if(!mapaCarpetas[carp]) mapaCarpetas[carp] = 0;
-        mapaCarpetas[carp]++;
-    });
-
-    Object.keys(mapaCarpetas).forEach(nombreCarpeta => {
-        const cantidad = mapaCarpetas[nombreCarpeta];
-        contenedor.innerHTML += `
-            <div class="folder-card" onclick="abrirCarpeta('${nombreCarpeta}')">
-                <div class="folder-icon">📁</div>
-                <h3>${nombreCarpeta}</h3>
-                <p>${cantidad} ${cantidad === 1 ? 'archivo' : 'archivos'}</p>
-            </div>`;
-    });
-}
-
-function abrirCarpeta(nombreCarpeta) {
-    carpetaSeleccionada = nombreCarpeta;
-    document.getElementById('tituloCarpetaActiva').textContent = `📁 Carpeta: ${nombreCarpeta}`;
-    document.getElementById('inputCarpetaActual').value = nombreCarpeta;
-    
-    document.getElementById('vistaCarpetasContainer').style.display = 'none';
-    document.getElementById('vistaArchivosContainer').style.display = 'block';
-    
-    renderizarTablaCarpeta();
-}
-
-function volverACarpetas() {
-    carpetaSeleccionada = '';
-    document.getElementById('vistaArchivosContainer').style.display = 'none';
-    document.getElementById('vistaCarpetasContainer').style.display = 'block';
-    renderizarGrillaCarpetas();
-}
-
-function renderizarTablaCarpeta() {
-    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
-    const filtroTipo = document.getElementById('filtroCategoria').value;
-    const lista = document.getElementById('listaArchivos');
-    lista.innerHTML = '';
-
-    const archivosDeCarpeta = todosLosArchivos.filter(a => (a.carpeta || 'General') === carpetaSeleccionada);
-
-    if (archivosDeCarpeta.length === 0) {
-        lista.innerHTML = '<tr><td colspan="4" class="loading" style="text-align: center; padding: 20px;">No hay documentos en esta carpeta. ¡Sube el primero arriba!</td></tr>';
-        return;
     }
 
-    archivosDeCarpeta.forEach(a => {
-        if (filtroTipo === 'TODOS' || a.categoria === filtroTipo) {
+    // Dibujar Tabla de Archivos si existen
+    if (archivosFiltrados.length > 0) {
+        contenedorTabla.style.display = 'block';
+        const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+
+        archivosFiltrados.forEach(a => {
             const estaEnUso = a.estado === 'EN_USO';
             const esDueño = a.bloqueadoPor === usuarioLogueado.nombre;
             const esAdmin = usuarioLogueado.rol === 'admin';
@@ -217,7 +189,7 @@ function renderizarTablaCarpeta() {
                 botones += `<button onclick="eliminarArchivo('${a.id}')" style="background: #dc2626; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Eliminar</button>`;
             }
 
-            lista.innerHTML += `
+            listaArchivos.innerHTML += `
                 <tr>
                     <td><strong>${a.categoria}</strong></td>
                     <td>
@@ -227,8 +199,49 @@ function renderizarTablaCarpeta() {
                     <td>${a.createdTime ? new Date(a.createdTime).toLocaleDateString() : 'Reciente'}</td>
                     <td>${botones}</td>
                 </tr>`;
+        });
+    } else {
+        contenedorTabla.style.display = 'none';
+    }
+}
+
+// ENTRAR A UNA SUBCARPETA
+function entrarCarpeta(id, nombre) {
+    historialRuta.push({ id: id, nombre: nombre });
+    renderizarDirectorioActual();
+}
+
+// SUBIR DE NIVEL EN EL HISTORIAL
+function subirNivelCarpeta() {
+    if (historialRuta.length > 1) {
+        historialRuta.pop();
+        renderizarDirectorioActual();
+    }
+}
+
+// CREAR CARPETA EN EL NIVEL ACTUAL
+async function crearCarpetaActual() {
+    const nombre = prompt('Ingresa el nombre de la nueva carpeta (Ej: Contratos, Liquidaciones):');
+    if (!nombre || !nombre.trim()) return;
+
+    const carpetaActualId = historialRuta[historialRuta.length - 1].id;
+
+    try {
+        const res = await fetch('/api/carpetas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre: nombre.trim(), parentId: carpetaActualId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('¡Subcarpeta creada correctamente!');
+            cargarElementos();
+        } else {
+            alert('No se pudo crear la subcarpeta.');
         }
-    });
+    } catch (err) {
+        alert('Error de red al crear la subcarpeta.');
+    }
 }
 
 async function bloquearArchivo(id, linkDescarga) {
@@ -239,20 +252,20 @@ async function bloquearArchivo(id, linkDescarga) {
         body: JSON.stringify({ usuario: usuarioLogueado.nombre }) 
     });
     if(linkDescarga) window.open(linkDescarga, '_blank');
-    cargarArchivos();
+    cargarElementos();
 }
 
 async function desbloquearArchivo(id) {
     if(confirm('¿Forzar desbloqueo del archivo?')) {
         await fetch(`/api/archivos/${id}/desbloquear`, { method: 'POST' });
-        cargarArchivos();
+        cargarElementos();
     }
 }
 
 async function eliminarArchivo(id) {
-    if (confirm('¿Estás seguro de eliminar este documento del Drive corporativo?')) {
+    if (confirm('¿Estás seguro de eliminar este documento?')) {
         await fetch(`/api/archivos/${id}`, { method: 'DELETE' });
-        cargarArchivos();
+        cargarElementos();
     }
 }
 
@@ -264,9 +277,9 @@ async function reemplazarArchivo(id) {
         if (!file) return;
         const formData = new FormData();
         formData.append('archivo', file);
-        alert('Subiendo archivo actualizado y desbloqueando...');
+        alert('Subiendo archivo actualizado...');
         await fetch(`/api/archivos/${id}`, { method: 'PUT', body: formData });
-        cargarArchivos();
+        cargarElementos();
     };
     input.click();
 }
@@ -285,7 +298,7 @@ async function cargarUsuarios() {
 }
 
 async function eliminarUser(id) {
-    if(confirm('¿Estás seguro de revocar el acceso a este usuario?')) {
+    if(confirm('¿Estás seguro de revocar el acceso?')) {
         await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
         cargarUsuarios();
     }
