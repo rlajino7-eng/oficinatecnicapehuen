@@ -41,45 +41,94 @@ app.delete('/api/usuarios/:id', (req, res) => {
   res.json({ success: true, usuarios: usuariosAutorizados });
 });
 
-// LISTAR ARCHIVOS Y SUS CARPETAS
+// LISTAR ARCHIVOS Y BUSCAR SUS SUBCARPETAS REALES EN GOOGLE DRIVE
 app.get('/api/archivos', async (req, res) => {
   try {
+    // 1. Obtener todas las subcarpetas que están dentro de la carpeta principal
+    const foldersRes = await drive.files.list({
+      q: `'${FOLDER_ID}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id, name)'
+    });
+    const subcarpetas = foldersRes.data.files;
+    const folderMap = {};
+    subcarpetas.forEach(f => folderMap[f.id] = f.name);
+    folderMap[FOLDER_ID] = 'General'; // Por si hay archivos sueltos en la raíz
+
+    // 2. Armar la consulta para buscar archivos en la raíz o dentro de las subcarpetas
+    let parentQueries = [`'${FOLDER_ID}' in parents`];
+    subcarpetas.forEach(sf => parentQueries.push(`'${sf.id}' in parents`));
+    const query = `(${parentQueries.join(' or ')}) and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
+
     const response = await drive.files.list({
-      q: `'${FOLDER_ID}' in parents and trashed = false`,
-      fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime, properties)',
+      q: query,
+      fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime, parents, properties)',
       orderBy: 'createdTime desc'
     });
-    const archivos = response.data.files.map(f => ({
-      ...f,
-      categoria: f.name.includes('_') ? f.name.split('_')[0].toUpperCase() : 'GENERAL',
-      estado: f.properties?.estado || 'DISPONIBLE',
-      bloqueadoPor: f.properties?.bloqueadoPor || '',
-      carpeta: f.properties?.carpeta || 'General' // <-- Aquí leemos la carpeta
-    }));
+
+    const archivos = response.data.files.map(f => {
+      const parentId = f.parents && f.parents[0] ? f.parents[0] : FOLDER_ID;
+      const nombreCarpeta = folderMap[parentId] || 'General';
+
+      return {
+        ...f,
+        categoria: f.name.includes('_') ? f.name.split('_')[0].toUpperCase() : 'GENERAL',
+        estado: f.properties?.estado || 'DISPONIBLE',
+        bloqueadoPor: f.properties?.bloqueadoPor || '',
+        carpeta: nombreCarpeta
+      };
+    });
+
     res.json(archivos);
   } catch (error) {
     res.status(500).json({ error: 'Error conectando a Google Drive' });
   }
 });
 
-// SUBIR ARCHIVO ASIGNÁNDOLE UNA CARPETA
+// SUBIR ARCHIVO A SUBCARPETA (La crea automáticamente si no existe)
 app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'Sin archivo' });
     const bufferStream = new stream.PassThrough();
     bufferStream.end(req.file.buffer);
     
-    const nombreCarpeta = req.body.carpeta || 'General';
+    let nombreCarpeta = req.body.carpeta ? req.body.carpeta.trim() : 'General';
+    if (!nombreCarpeta) nombreCarpeta = 'General';
 
+    let targetFolderId = FOLDER_ID;
+
+    // Si la carpeta no es la raíz, buscamos o creamos la subcarpeta física en Google Drive
+    if (nombreCarpeta !== 'General') {
+      const checkFolder = await drive.files.list({
+        q: `'${FOLDER_ID}' in parents and name = '${nombreCarpeta}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'files(id, name)'
+      });
+
+      if (checkFolder.data.files.length > 0) {
+        targetFolderId = checkFolder.data.files[0].id;
+      } else {
+        const createFolder = await drive.files.create({
+          resource: {
+            name: nombreCarpeta,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [FOLDER_ID]
+          },
+          fields: 'id, name'
+        });
+        targetFolderId = createFolder.data.id;
+      }
+    }
+
+    // Subir el archivo dentro de la subcarpeta correspondiente
     const file = await drive.files.create({
       resource: { 
           name: req.file.originalname, 
-          parents: [FOLDER_ID],
-          properties: { carpeta: nombreCarpeta, estado: 'DISPONIBLE' }
+          parents: [targetFolderId],
+          properties: { estado: 'DISPONIBLE' }
       },
       media: { mimeType: req.file.mimetype, body: bufferStream },
       fields: 'id, name, webViewLink'
     });
+
     res.json({ success: true, file: file.data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
