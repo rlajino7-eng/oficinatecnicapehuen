@@ -26,11 +26,8 @@ let usuariosAutorizados = [
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   const usuario = usuariosAutorizados.find(u => u.email === email && u.password === password);
-  if (usuario) {
-    res.json({ success: true, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
-  } else {
-    res.status(401).json({ success: false, error: 'Correo o contraseña incorrectos' });
-  }
+  if (usuario) res.json({ success: true, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
+  else res.status(401).json({ success: false, error: 'Correo o contraseña incorrectos' });
 });
 
 app.get('/api/usuarios', (req, res) => res.json(usuariosAutorizados));
@@ -44,17 +41,19 @@ app.delete('/api/usuarios/:id', (req, res) => {
   res.json({ success: true, usuarios: usuariosAutorizados });
 });
 
-// Listar archivos con categoría automática basada en el nombre (Ej: PLANO_fundacion.pdf -> Categoría: PLANO)
+// LISTAR ARCHIVOS (Ahora lee si están bloqueados)
 app.get('/api/archivos', async (req, res) => {
   try {
     const response = await drive.files.list({
       q: `'${FOLDER_ID}' in parents and trashed = false`,
-      fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime)',
+      fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime, properties)',
       orderBy: 'createdTime desc'
     });
     const archivos = response.data.files.map(f => ({
       ...f,
-      categoria: f.name.includes('_') ? f.name.split('_')[0].toUpperCase() : 'GENERAL'
+      categoria: f.name.includes('_') ? f.name.split('_')[0].toUpperCase() : 'GENERAL',
+      estado: f.properties?.estado || 'DISPONIBLE',
+      bloqueadoPor: f.properties?.bloqueadoPor || ''
     }));
     res.json(archivos);
   } catch (error) {
@@ -62,7 +61,7 @@ app.get('/api/archivos', async (req, res) => {
   }
 });
 
-// Subir archivo
+// SUBIR ARCHIVO NUEVO
 app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'Sin archivo' });
@@ -79,7 +78,7 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   }
 });
 
-// ELIMINAR archivo de Drive
+// ELIMINAR ARCHIVO
 app.delete('/api/archivos/:id', async (req, res) => {
   try {
     await drive.files.delete({ fileId: req.params.id });
@@ -89,7 +88,33 @@ app.delete('/api/archivos/:id', async (req, res) => {
   }
 });
 
-// REEMPLAZAR archivo en Drive manteniendo el mismo ID
+// BLOQUEAR ARCHIVO (Para editar)
+app.post('/api/archivos/:id/bloquear', async (req, res) => {
+  try {
+    await drive.files.update({
+      fileId: req.params.id,
+      resource: { properties: { estado: 'EN_USO', bloqueadoPor: req.body.usuario } }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false });
+  }
+});
+
+// DESBLOQUEAR MANUALMENTE (Para el admin)
+app.post('/api/archivos/:id/desbloquear', async (req, res) => {
+  try {
+    await drive.files.update({
+      fileId: req.params.id,
+      resource: { properties: { estado: null, bloqueadoPor: null } }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false });
+  }
+});
+
+// REEMPLAZAR ARCHIVO (Al subirlo se desbloquea automáticamente)
 app.put('/api/archivos/:id', upload.single('archivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'Sin archivo nuevo' });
@@ -97,7 +122,8 @@ app.put('/api/archivos/:id', upload.single('archivo'), async (req, res) => {
     bufferStream.end(req.file.buffer);
     const file = await drive.files.update({
       fileId: req.params.id,
-      media: { mimeType: req.file.mimetype, body: bufferStream }
+      media: { mimeType: req.file.mimetype, body: bufferStream },
+      resource: { properties: { estado: null, bloqueadoPor: null } }
     });
     res.json({ success: true, file: file.data });
   } catch (error) {
