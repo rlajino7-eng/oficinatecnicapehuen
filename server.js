@@ -41,10 +41,41 @@ app.delete('/api/usuarios/:id', (req, res) => {
   res.json({ success: true, usuarios: usuariosAutorizados });
 });
 
-// LISTAR ARCHIVOS Y BUSCAR SUS SUBCARPETAS REALES EN GOOGLE DRIVE
+// NUEVO: CREAR CARPETA FÍSICA EN GOOGLE DRIVE
+app.post('/api/carpetas', async (req, res) => {
+  try {
+    const nombreCarpeta = req.body.nombre ? req.body.nombre.trim() : '';
+    if (!nombreCarpeta) return res.status(400).json({ success: false, error: 'Nombre vacío' });
+
+    // Verificar si ya existe
+    const checkFolder = await drive.files.list({
+      q: `'${FOLDER_ID}' in parents and name = '${nombreCarpeta}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id, name)'
+    });
+
+    if (checkFolder.data.files.length > 0) {
+      return res.json({ success: true, folder: checkFolder.data.files[0] });
+    }
+
+    // Crear la carpeta en Google Drive
+    const createFolder = await drive.files.create({
+      resource: {
+        name: nombreCarpeta,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [FOLDER_ID]
+      },
+      fields: 'id, name'
+    });
+
+    res.json({ success: true, folder: createFolder.data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// LISTAR ARCHIVOS Y SUBCARPETAS
 app.get('/api/archivos', async (req, res) => {
   try {
-    // 1. Obtener todas las subcarpetas que están dentro de la carpeta principal
     const foldersRes = await drive.files.list({
       q: `'${FOLDER_ID}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)'
@@ -52,9 +83,8 @@ app.get('/api/archivos', async (req, res) => {
     const subcarpetas = foldersRes.data.files;
     const folderMap = {};
     subcarpetas.forEach(f => folderMap[f.id] = f.name);
-    folderMap[FOLDER_ID] = 'General'; // Por si hay archivos sueltos en la raíz
+    folderMap[FOLDER_ID] = 'General';
 
-    // 2. Armar la consulta para buscar archivos en la raíz o dentro de las subcarpetas
     let parentQueries = [`'${FOLDER_ID}' in parents`];
     subcarpetas.forEach(sf => parentQueries.push(`'${sf.id}' in parents`));
     const query = `(${parentQueries.join(' or ')}) and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
@@ -84,7 +114,7 @@ app.get('/api/archivos', async (req, res) => {
   }
 });
 
-// SUBIR ARCHIVO A SUBCARPETA (La crea automáticamente si no existe)
+// SUBIR ARCHIVO A SUBCARPETA
 app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'Sin archivo' });
@@ -96,7 +126,6 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
 
     let targetFolderId = FOLDER_ID;
 
-    // Si la carpeta no es la raíz, buscamos o creamos la subcarpeta física en Google Drive
     if (nombreCarpeta !== 'General') {
       const checkFolder = await drive.files.list({
         q: `'${FOLDER_ID}' in parents and name = '${nombreCarpeta}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
@@ -118,7 +147,6 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
       }
     }
 
-    // Subir el archivo dentro de la subcarpeta correspondiente
     const file = await drive.files.create({
       resource: { 
           name: req.file.originalname, 
