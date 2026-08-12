@@ -21,7 +21,6 @@
 </head>
 <body>
 
-    <!-- PANTALLA DE LOGIN -->
     <div id="loginScreen" class="login-wrapper">
         <div class="login-card">
             <img src="Imagen1.png" alt="Pehuén Montaje y Mantención" class="login-logo">
@@ -39,7 +38,6 @@
         </div>
     </div>
 
-    <!-- PANEL PRINCIPAL -->
     <div id="mainApp" style="display: none;">
         <header class="header-tecnico">
             <div class="logo-box">
@@ -59,71 +57,52 @@
 
         <main class="dashboard">
             
-            <!-- VISTA 1: GRILLA DE CARPETAS -->
-            <div id="vistaCarpetasContainer">
+            <div id="vistaDirectorioContainer">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 10px;">
                     <div>
-                        <h2>📁 Directorio de Proyectos y Departamentos</h2>
-                        <p style="color: #64748b; margin: 5px 0 0 0;">Selecciona una carpeta para ver, descargar o subir documentos en su interior.</p>
+                        <button id="btnVolverAtras" class="btn-volver" style="display:none;" onclick="subirNivelCarpeta()">⬅ Volver</button>
+                        <h2 id="tituloDirectorio">📁 Directorio Principal</h2>
+                        <p style="color: #64748b; margin: 5px 0 0 0;" id="subtituloDirectorio">Explora las carpetas o ingresa a una para ver su contenido.</p>
                     </div>
-                    <!-- BOTÓN PARA CREAR NUEVA CARPETA -->
-                    <button class="btn-nueva-carpeta" onclick="crearNuevaCarpeta()">➕ Nueva Carpeta</button>
+                    <button class="btn-nueva-carpeta" onclick="crearCarpetaActual()">➕ Nueva Carpeta</button>
                 </div>
                 
-                <div id="grillaCarpetas" class="folder-grid">
-                    <!-- Tarjetas de carpetas -->
+                <!-- GRILLA COMBINADA DE SUBCARPETAS Y ARCHIVOS -->
+                <div id="grillaDirectorio" class="folder-grid"></div>
+
+                <!-- TABLA PARA ARCHIVOS SI LOS HAY -->
+                <div id="contenedorTablaArchivos" style="margin-top: 30px; display: none;">
+                    <h3>Documentos en esta ubicación</h3>
+                    <section class="table-container">
+                        <table class="tech-table">
+                            <thead>
+                                <tr>
+                                    <th>TIPO</th>
+                                    <th>NOMBRE DEL ARCHIVO / DOCUMENTO TÉCNICO</th>
+                                    <th>FECHA REGISTRO</th>
+                                    <th>ACCIONES CORPORATIVAS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="listaArchivosCarpeta"></tbody>
+                        </table>
+                    </section>
                 </div>
-            </div>
 
-            <!-- VISTA 2: CONTENIDO DE LA CARPETA SELECCIONADA -->
-            <div id="vistaArchivosContainer" style="display: none;">
-                <button class="btn-volver" onclick="volverACarpetas()">⬅ Volver a Carpetas</button>
-                
-                <div style="background: #f1f5f9; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                    <div>
-                        <h2 id="tituloCarpetaActiva" style="margin: 0; color: #0f172a;">📁 Carpeta</h2>
-                        <span style="font-size: 13px; color: #475569;">Gestión interna de documentos</span>
-                    </div>
-
-                    <!-- Formulario de subida dentro de esta carpeta -->
-                    <form id="formSubir" class="upload-area" style="display: flex; gap: 10px; align-items: center; background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
-                        <input type="hidden" id="inputCarpetaActual">
-                        <label for="archivoInput" class="btn-select" style="margin: 0; cursor: pointer; background: #e2e8f0; padding: 6px 12px; border-radius: 4px; font-weight: 600; font-size: 13px;">📁 Seleccionar Archivo</label>
+                <!-- FORMULARIO DE SUBIDA RÁPIDA ABAJO -->
+                <div style="margin-top: 30px; background: #f1f5f9; padding: 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <strong>Subir archivo en esta ubicación actual:</strong>
+                    <form id="formSubir" style="display: flex; gap: 10px; align-items: center;">
+                        <label for="archivoInput" class="btn-select" style="margin: 0; cursor: pointer; background: white; padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 13px;">📁 Seleccionar Archivo</label>
                         <input type="file" id="archivoInput" required style="display: none;">
                         <span id="nombreSeleccionado" class="file-name" style="font-size: 13px; color: #64748b;">Ningún archivo...</span>
                         <button type="submit" class="btn-upload" style="background: #16a34a; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">⬆ Subir aquí</button>
                     </form>
                 </div>
-
-                <div style="margin-bottom: 15px;">
-                    <label for="filtroCategoria" style="font-weight: bold; font-size: 13px;">Filtrar por tipo:</label>
-                    <select id="filtroCategoria" onchange="renderizarTablaCarpeta()" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
-                        <option value="TODOS">Todos los tipos</option>
-                        <option value="PLANO">Planos</option>
-                        <option value="INFORME">Informes</option>
-                        <option value="GENERAL">General</option>
-                    </select>
-                </div>
-
-                <section class="table-container">
-                    <table class="tech-table">
-                        <thead>
-                            <tr>
-                                <th>TIPO</th>
-                                <th>NOMBRE DEL ARCHIVO / DOCUMENTO TÉCNICO</th>
-                                <th>FECHA REGISTRO</th>
-                                <th>ACCIONES CORPORATIVAS</th>
-                            </tr>
-                        </thead>
-                        <tbody id="listaArchivos"></tbody>
-                    </table>
-                </section>
             </div>
 
         </main>
     </div>
 
-    <!-- MODAL DE ADMINISTRACIÓN -->
     <div id="adminModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
