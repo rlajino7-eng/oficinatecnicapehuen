@@ -41,7 +41,7 @@ app.delete('/api/usuarios/:id', (req, res) => {
   res.json({ success: true, usuarios: usuariosAutorizados });
 });
 
-// LISTAR ARCHIVOS (Ahora lee si están bloqueados)
+// LISTAR ARCHIVOS Y SUS CARPETAS
 app.get('/api/archivos', async (req, res) => {
   try {
     const response = await drive.files.list({
@@ -53,7 +53,8 @@ app.get('/api/archivos', async (req, res) => {
       ...f,
       categoria: f.name.includes('_') ? f.name.split('_')[0].toUpperCase() : 'GENERAL',
       estado: f.properties?.estado || 'DISPONIBLE',
-      bloqueadoPor: f.properties?.bloqueadoPor || ''
+      bloqueadoPor: f.properties?.bloqueadoPor || '',
+      carpeta: f.properties?.carpeta || 'General' // <-- Aquí leemos la carpeta
     }));
     res.json(archivos);
   } catch (error) {
@@ -61,14 +62,21 @@ app.get('/api/archivos', async (req, res) => {
   }
 });
 
-// SUBIR ARCHIVO NUEVO
+// SUBIR ARCHIVO ASIGNÁNDOLE UNA CARPETA
 app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'Sin archivo' });
     const bufferStream = new stream.PassThrough();
     bufferStream.end(req.file.buffer);
+    
+    const nombreCarpeta = req.body.carpeta || 'General';
+
     const file = await drive.files.create({
-      resource: { name: req.file.originalname, parents: [FOLDER_ID] },
+      resource: { 
+          name: req.file.originalname, 
+          parents: [FOLDER_ID],
+          properties: { carpeta: nombreCarpeta, estado: 'DISPONIBLE' }
+      },
       media: { mimeType: req.file.mimetype, body: bufferStream },
       fields: 'id, name, webViewLink'
     });
@@ -88,7 +96,7 @@ app.delete('/api/archivos/:id', async (req, res) => {
   }
 });
 
-// BLOQUEAR ARCHIVO (Para editar)
+// BLOQUEAR ARCHIVO
 app.post('/api/archivos/:id/bloquear', async (req, res) => {
   try {
     await drive.files.update({
@@ -101,7 +109,7 @@ app.post('/api/archivos/:id/bloquear', async (req, res) => {
   }
 });
 
-// DESBLOQUEAR MANUALMENTE (Para el admin)
+// DESBLOQUEAR MANUALMENTE
 app.post('/api/archivos/:id/desbloquear', async (req, res) => {
   try {
     await drive.files.update({
@@ -114,7 +122,7 @@ app.post('/api/archivos/:id/desbloquear', async (req, res) => {
   }
 });
 
-// REEMPLAZAR ARCHIVO (Al subirlo se desbloquea automáticamente)
+// REEMPLAZAR ARCHIVO
 app.put('/api/archivos/:id', upload.single('archivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'Sin archivo nuevo' });
