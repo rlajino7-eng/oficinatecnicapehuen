@@ -17,7 +17,6 @@ oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Base de datos de usuarios
 let usuariosAutorizados = [
   { id: 1, email: 'admin@pehuen.cl', password: 'Pehuen2026*', rol: 'admin', nombre: 'Admin Técnico' },
   { id: 2, email: 'ingeniero1@pehuen.cl', password: 'pehuen123', rol: 'ingeniero', nombre: 'Ingeniero Montaje' }
@@ -41,30 +40,22 @@ app.delete('/api/usuarios/:id', (req, res) => {
   res.json({ success: true, usuarios: usuariosAutorizados });
 });
 
-// NUEVO: CREAR CARPETA FÍSICA EN GOOGLE DRIVE
+// CREAR SUBCARPETA DENTRO DE OTRA CARPETA
 app.post('/api/carpetas', async (req, res) => {
   try {
-    const nombreCarpeta = req.body.nombre ? req.body.nombre.trim() : '';
+    const { nombre, parentId } = req.body;
+    const nombreCarpeta = nombre ? nombre.trim() : '';
+    const carpetaPadre = parentId ? parentId : FOLDER_ID;
+
     if (!nombreCarpeta) return res.status(400).json({ success: false, error: 'Nombre vacío' });
 
-    // Verificar si ya existe
-    const checkFolder = await drive.files.list({
-      q: `'${FOLDER_ID}' in parents and name = '${nombreCarpeta}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-      fields: 'files(id, name)'
-    });
-
-    if (checkFolder.data.files.length > 0) {
-      return res.json({ success: true, folder: checkFolder.data.files[0] });
-    }
-
-    // Crear la carpeta en Google Drive
     const createFolder = await drive.files.create({
       resource: {
         name: nombreCarpeta,
         mimeType: 'application/vnd.google-apps.folder',
-        parents: [FOLDER_ID]
+        parents: [carpetaPadre]
       },
-      fields: 'id, name'
+      fields: 'id, name, parents'
     });
 
     res.json({ success: true, folder: createFolder.data });
@@ -73,79 +64,43 @@ app.post('/api/carpetas', async (req, res) => {
   }
 });
 
-// LISTAR ARCHIVOS Y SUBCARPETAS
-app.get('/api/archivos', async (req, res) => {
+// LISTAR TODO (Carpetas y Archivos con su jerarquía exacta)
+app.get('/api/elementos', async (req, res) => {
   try {
-    const foldersRes = await drive.files.list({
-      q: `'${FOLDER_ID}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-      fields: 'files(id, name)'
-    });
-    const subcarpetas = foldersRes.data.files;
-    const folderMap = {};
-    subcarpetas.forEach(f => folderMap[f.id] = f.name);
-    folderMap[FOLDER_ID] = 'General';
-
-    let parentQueries = [`'${FOLDER_ID}' in parents`];
-    subcarpetas.forEach(sf => parentQueries.push(`'${sf.id}' in parents`));
-    const query = `(${parentQueries.join(' or ')}) and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
-
     const response = await drive.files.list({
-      q: query,
+      q: `'${FOLDER_ID}' in parents or '${FOLDER_ID}' in parents or trashed = false`, // Buscador general controlado
+      q: `trashed = false`,
       fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime, parents, properties)',
       orderBy: 'createdTime desc'
     });
 
-    const archivos = response.data.files.map(f => {
-      const parentId = f.parents && f.parents[0] ? f.parents[0] : FOLDER_ID;
-      const nombreCarpeta = folderMap[parentId] || 'General';
+    // Filtramos solo los elementos que pertenecen al proyecto (evitamos basura de Drive)
+    const allFiles = response.data.files;
+    
+    // Mapeamos para estructurarlo de manera limpia al frontend
+    const elementos = allFiles.map(f => ({
+      ...f,
+      esCarpeta: f.mimeType === 'application/vnd.google-apps.folder',
+      parentId: f.parents && f.parents[0] ? f.parents[0] : FOLDER_ID,
+      categoria: f.name.includes('_') ? f.name.split('_')[0].toUpperCase() : 'GENERAL',
+      estado: f.properties?.estado || 'DISPONIBLE',
+      bloqueadoPor: f.properties?.bloqueadoPor || ''
+    }));
 
-      return {
-        ...f,
-        categoria: f.name.includes('_') ? f.name.split('_')[0].toUpperCase() : 'GENERAL',
-        estado: f.properties?.estado || 'DISPONIBLE',
-        bloqueadoPor: f.properties?.bloqueadoPor || '',
-        carpeta: nombreCarpeta
-      };
-    });
-
-    res.json(archivos);
+    res.json(elementos);
   } catch (error) {
     res.status(500).json({ error: 'Error conectando a Google Drive' });
   }
 });
 
-// SUBIR ARCHIVO A SUBCARPETA
+// SUBIR ARCHIVO A UNA CARPETA ESPECÍFICA POR ID
 app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'Sin archivo' });
     const bufferStream = new stream.PassThrough();
     bufferStream.end(req.file.buffer);
     
-    let nombreCarpeta = req.body.carpeta ? req.body.carpeta.trim() : 'General';
-    if (!nombreCarpeta) nombreCarpeta = 'General';
-
-    let targetFolderId = FOLDER_ID;
-
-    if (nombreCarpeta !== 'General') {
-      const checkFolder = await drive.files.list({
-        q: `'${FOLDER_ID}' in parents and name = '${nombreCarpeta}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-        fields: 'files(id, name)'
-      });
-
-      if (checkFolder.data.files.length > 0) {
-        targetFolderId = checkFolder.data.files[0].id;
-      } else {
-        const createFolder = await drive.files.create({
-          resource: {
-            name: nombreCarpeta,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [FOLDER_ID]
-          },
-          fields: 'id, name'
-        });
-        targetFolderId = createFolder.data.id;
-      }
-    }
+    const targetFolderId = req.body.parentId ? req.body.parentId : FOLDER_ID;
 
     const file = await drive.files.create({
       resource: { 
@@ -154,7 +109,7 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
           properties: { estado: 'DISPONIBLE' }
       },
       media: { mimeType: req.file.mimetype, body: bufferStream },
-      fields: 'id, name, webViewLink'
+      fields: 'id, name, webViewLink, parents'
     });
 
     res.json({ success: true, file: file.data });
@@ -163,7 +118,6 @@ app.post('/api/subir', upload.single('archivo'), async (req, res) => {
   }
 });
 
-// ELIMINAR ARCHIVO
 app.delete('/api/archivos/:id', async (req, res) => {
   try {
     await drive.files.delete({ fileId: req.params.id });
@@ -173,7 +127,6 @@ app.delete('/api/archivos/:id', async (req, res) => {
   }
 });
 
-// BLOQUEAR ARCHIVO
 app.post('/api/archivos/:id/bloquear', async (req, res) => {
   try {
     await drive.files.update({
@@ -186,7 +139,6 @@ app.post('/api/archivos/:id/bloquear', async (req, res) => {
   }
 });
 
-// DESBLOQUEAR MANUALMENTE
 app.post('/api/archivos/:id/desbloquear', async (req, res) => {
   try {
     await drive.files.update({
@@ -199,7 +151,6 @@ app.post('/api/archivos/:id/desbloquear', async (req, res) => {
   }
 });
 
-// REEMPLAZAR ARCHIVO
 app.put('/api/archivos/:id', upload.single('archivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'Sin archivo nuevo' });
