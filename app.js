@@ -1,3 +1,5 @@
+let todosLosArchivos = [];
+
 document.addEventListener('DOMContentLoaded', () => {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
     if (!usuarioLogueado) {
@@ -30,9 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
         formSubir.addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('archivoInput');
+            const inputCarpeta = document.getElementById('inputCarpetaNueva').value;
+
             if (!input.files[0]) return;
             const formData = new FormData();
             formData.append('archivo', input.files[0]);
+            formData.append('carpeta', inputCarpeta.trim()); // Se envía la carpeta al servidor
+
             const btn = formSubir.querySelector('.btn-upload');
             btn.textContent = 'Subiendo...';
             try {
@@ -44,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     cargarArchivos();
                 } else alert('Error: ' + data.error);
             } catch (err) { alert('Error de red'); }
-            btn.textContent = '⬆ Subir a Drive';
+            btn.textContent = '⬆ Subir';
         });
 
         document.getElementById('archivoInput').addEventListener('change', (e) => {
@@ -59,7 +65,7 @@ function mostrarApp(usuario) {
     document.getElementById('badgeUsuario').textContent = `${usuario.nombre} (${usuario.rol.toUpperCase()})`;
     if (usuario.rol === 'admin') {
         document.getElementById('btnAdmin').style.display = 'inline-block';
-        cargarUsuarios(); // Faltaba esto antes, ahora está aquí seguro.
+        cargarUsuarios();
     }
     cargarArchivos();
 }
@@ -70,55 +76,89 @@ function cerrarSesion() {
 }
 
 async function cargarArchivos() {
-    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
     try {
         const res = await fetch('/api/archivos');
-        const archivos = await res.json();
-        const filtro = document.getElementById('filtroCategoria').value;
-        const lista = document.getElementById('listaArchivos');
-        lista.innerHTML = '';
-
-        if (archivos.length === 0) {
-            lista.innerHTML = '<tr><td colspan="4" class="loading">No hay documentos en el repositorio.</td></tr>';
-            return;
-        }
-
-        archivos.forEach(a => {
-            if (filtro === 'TODOS' || a.categoria === filtro) {
-                const estaEnUso = a.estado === 'EN_USO';
-                const esDueño = a.bloqueadoPor === usuarioLogueado.nombre;
-                const esAdmin = usuarioLogueado.rol === 'admin';
-                
-                let etiquetaEstado = estaEnUso ? `<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">🔒 En uso por ${a.bloqueadoPor}</span>` : '';
-                
-                let botones = '';
-                
-                if (estaEnUso) {
-                    if (esDueño || esAdmin) {
-                        botones += `<button onclick="reemplazarArchivo('${a.id}')" style="background: #0284c7; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 12px;">⬆ Subir Modificado</button>`;
-                    }
-                    if (esAdmin) {
-                        botones += `<button onclick="desbloquearArchivo('${a.id}')" style="background: #475569; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px;">Desbloquear</button>`;
-                    }
-                    botones += `<button style="background: #ccc; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 12px;" disabled>Eliminar</button>`;
-                } else {
-                    botones += `<button onclick="bloquearArchivo('${a.id}', '${a.webContentLink}')" style="background: #eab308; color: black; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 12px; font-weight: bold;">Bloquear para editar</button>`;
-                    botones += `<button onclick="eliminarArchivo('${a.id}')" style="background: #dc2626; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Eliminar</button>`;
-                }
-
-                lista.innerHTML += `
-                    <tr>
-                        <td><strong>${a.categoria}</strong></td>
-                        <td>
-                            <a href="${a.webViewLink}" target="_blank" style="color: #004080; font-weight: 500; text-decoration: none;">${a.name}</a><br>
-                            ${etiquetaEstado}
-                        </td>
-                        <td>${a.createdTime ? new Date(a.createdTime).toLocaleDateString() : 'Reciente'}</td>
-                        <td>${botones}</td>
-                    </tr>`;
-            }
-        });
+        todosLosArchivos = await res.json();
+        actualizarSelectoresCarpetas(todosLosArchivos);
+        renderizarTabla();
     } catch (err) { console.error('Error cargando archivos', err); }
+}
+
+function actualizarSelectoresCarpetas(archivos) {
+    const carpetasUnicas = new Set();
+    archivos.forEach(a => carpetasUnicas.add(a.carpeta));
+
+    const selectorVisor = document.getElementById('filtroCarpetaVisor');
+    const dataListSubida = document.getElementById('listaCarpetas');
+    
+    // Guardamos la selección actual para no perderla al recargar
+    const seleccionActual = selectorVisor.value;
+
+    selectorVisor.innerHTML = '<option value="TODAS">Todos los Proyectos</option>';
+    dataListSubida.innerHTML = '';
+
+    carpetasUnicas.forEach(carpeta => {
+        selectorVisor.innerHTML += `<option value="${carpeta}">${carpeta}</option>`;
+        dataListSubida.innerHTML += `<option value="${carpeta}">`;
+    });
+
+    // Restaurar selección si existe
+    if(carpetasUnicas.has(seleccionActual)) {
+        selectorVisor.value = seleccionActual;
+    }
+}
+
+function renderizarTabla() {
+    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+    const filtroTipo = document.getElementById('filtroCategoria').value;
+    const filtroCarpeta = document.getElementById('filtroCarpetaVisor').value;
+    const lista = document.getElementById('listaArchivos');
+    lista.innerHTML = '';
+
+    if (todosLosArchivos.length === 0) {
+        lista.innerHTML = '<tr><td colspan="5" class="loading">No hay documentos en el repositorio.</td></tr>';
+        return;
+    }
+
+    todosLosArchivos.forEach(a => {
+        const cumpleTipo = (filtroTipo === 'TODOS' || a.categoria === filtroTipo);
+        const cumpleCarpeta = (filtroCarpeta === 'TODAS' || a.carpeta === filtroCarpeta);
+
+        if (cumpleTipo && cumpleCarpeta) {
+            const estaEnUso = a.estado === 'EN_USO';
+            const esDueño = a.bloqueadoPor === usuarioLogueado.nombre;
+            const esAdmin = usuarioLogueado.rol === 'admin';
+            
+            let etiquetaEstado = estaEnUso ? `<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">🔒 En uso por ${a.bloqueadoPor}</span>` : '';
+            
+            let botones = '';
+            
+            if (estaEnUso) {
+                if (esDueño || esAdmin) {
+                    botones += `<button onclick="reemplazarArchivo('${a.id}')" style="background: #0284c7; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 12px;">⬆ Subir Modificado</button>`;
+                }
+                if (esAdmin) {
+                    botones += `<button onclick="desbloquearArchivo('${a.id}')" style="background: #475569; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px;">Desbloquear</button>`;
+                }
+                botones += `<button style="background: #ccc; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 12px;" disabled>Eliminar</button>`;
+            } else {
+                botones += `<button onclick="bloquearArchivo('${a.id}', '${a.webContentLink}')" style="background: #eab308; color: black; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 12px; font-weight: bold;">Bloquear</button>`;
+                botones += `<button onclick="eliminarArchivo('${a.id}')" style="background: #dc2626; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Eliminar</button>`;
+            }
+
+            lista.innerHTML += `
+                <tr>
+                    <td><span style="background:#e2e8f0; padding: 3px 8px; border-radius: 4px; color: #334155; font-size: 13px;">📁 ${a.carpeta}</span></td>
+                    <td><strong>${a.categoria}</strong></td>
+                    <td>
+                        <a href="${a.webViewLink}" target="_blank" style="color: #004080; font-weight: 500; text-decoration: none;">${a.name}</a><br>
+                        ${etiquetaEstado}
+                    </td>
+                    <td>${a.createdTime ? new Date(a.createdTime).toLocaleDateString() : 'Reciente'}</td>
+                    <td>${botones}</td>
+                </tr>`;
+        }
+    });
 }
 
 async function bloquearArchivo(id, linkDescarga) {
@@ -128,7 +168,6 @@ async function bloquearArchivo(id, linkDescarga) {
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ usuario: usuarioLogueado.nombre }) 
     });
-    // Abrir la descarga en otra pestaña
     if(linkDescarga) window.open(linkDescarga, '_blank');
     cargarArchivos();
 }
@@ -162,7 +201,6 @@ async function reemplazarArchivo(id) {
     input.click();
 }
 
-// Funciones de Usuarios (Mantenerlas para que no se tranque el login de admin)
 async function cargarUsuarios() {
     const res = await fetch('/api/usuarios');
     const usuarios = await res.json();
