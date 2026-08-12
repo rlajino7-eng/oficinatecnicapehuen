@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrarApp(usuarioLogueado);
     }
 
+    // --- LÓGICA DE INICIO DE SESIÓN ---
     document.getElementById('formLogin').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('emailLogin').value;
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- LÓGICA DE SUBIDA DE ARCHIVOS ---
     const formSubir = document.getElementById('formSubir');
     if (formSubir) {
         formSubir.addEventListener('submit', async (e) => {
@@ -37,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!input.files[0]) return;
             const formData = new FormData();
             formData.append('archivo', input.files[0]);
-            formData.append('carpeta', inputCarpeta.trim()); // Se envía la carpeta al servidor
+            formData.append('carpeta', inputCarpeta.trim());
 
             const btn = formSubir.querySelector('.btn-upload');
             btn.textContent = 'Subiendo...';
@@ -55,6 +57,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('archivoInput').addEventListener('change', (e) => {
             document.getElementById('nombreSeleccionado').textContent = e.target.files[0] ? e.target.files[0].name : 'Ningún archivo...';
+        });
+    }
+
+    // --- NUEVO: LÓGICA PARA CREAR USUARIOS DESDE EL MODAL ---
+    const formUsuario = document.getElementById('formUsuario');
+    if (formUsuario) {
+        formUsuario.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Evita que la página se recargue
+            const nombre = document.getElementById('nombreUser').value;
+            const email = document.getElementById('emailUser').value;
+            const password = document.getElementById('passUser').value;
+            const rol = document.getElementById('rolUser').value;
+
+            try {
+                const res = await fetch('/api/usuarios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre, email, password, rol })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Usuario corporativo agregado correctamente.');
+                    formUsuario.reset();
+                    document.getElementById('passUser').value = 'pehuen123'; // Reinicia la pass por defecto
+                    cargarUsuarios(); // Actualiza la tablita de abajo
+                }
+            } catch (error) {
+                alert('Error al conectar con el servidor para agregar usuario.');
+            }
         });
     }
 });
@@ -91,7 +122,6 @@ function actualizarSelectoresCarpetas(archivos) {
     const selectorVisor = document.getElementById('filtroCarpetaVisor');
     const dataListSubida = document.getElementById('listaCarpetas');
     
-    // Guardamos la selección actual para no perderla al recargar
     const seleccionActual = selectorVisor.value;
 
     selectorVisor.innerHTML = '<option value="TODAS">Todos los Proyectos</option>';
@@ -102,7 +132,6 @@ function actualizarSelectoresCarpetas(archivos) {
         dataListSubida.innerHTML += `<option value="${carpeta}">`;
     });
 
-    // Restaurar selección si existe
     if(carpetasUnicas.has(seleccionActual)) {
         selectorVisor.value = seleccionActual;
     }
@@ -209,10 +238,19 @@ async function cargarUsuarios() {
     usuarios.forEach(u => {
         lista.innerHTML += `<tr>
             <td>${u.nombre}</td><td>${u.email}</td><td>${u.rol.toUpperCase()}</td>
-            <td><button onclick="eliminarUser(${u.id})" style="background:red; color:white; padding:2px 5px; border:none; cursor:pointer;">X</button></td>
+            <td><button onclick="eliminarUser(${u.id})" style="background:red; color:white; padding:2px 5px; border:none; cursor:pointer; font-weight: bold;">X</button></td>
         </tr>`;
     });
 }
+
+// --- NUEVO: FUNCIÓN PARA ELIMINAR USUARIO ---
+async function eliminarUser(id) {
+    if(confirm('¿Estás seguro de que quieres revocar el acceso a este usuario?')) {
+        await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
+        cargarUsuarios(); // Recarga la tabla para que el usuario desaparezca visualmente
+    }
+}
+
 function toggleAdminModal() {
     const modal = document.getElementById('adminModal');
     modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
