@@ -1,5 +1,7 @@
 let todosLosElementos = [];
 let historialRuta = [{ id: '', nombre: 'Directorio Principal' }];
+let chatModoActual = 'general';
+let usuarioDestinoPrivado = '';
 
 document.addEventListener('DOMContentLoaded', () => {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
@@ -31,8 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             for (let i = 0; i < input.files.length; i++) formData.append('archivos', input.files[i]);
             formData.append('parentId', historialRuta[historialRuta.length - 1].id);
+            
             const btn = formSubir.querySelector('.btn-upload');
             btn.textContent = 'Subiendo lote... ⏳'; btn.style.background = '#f59e0b';
+            
             try {
                 const res = await fetch('/api/subir', { method: 'POST', body: formData });
                 const data = await res.json();
@@ -40,9 +44,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     let msg = 'Resumen:\n';
                     data.files.forEach(f => msg += f.status === 'duplicado' ? `⚠️ DUPLICADO: ${f.name}\n` : `✅ OK: ${f.name}\n`);
                     alert(msg); input.value = ''; document.getElementById('nombreSeleccionado').textContent = 'Ningún archivo...'; cargarElementos();
-                } else alert('Error: ' + data.error);
-            } catch (err) { alert('Error de red'); }
-            btn.textContent = '⬆ Subir aquí'; btn.style.background = '#16a34a';
+                } else {
+                    alert('Error al subir: ' + (data.error || 'Desconocido'));
+                }
+            } catch (err) { 
+                alert('Error de red al subir los archivos.'); 
+            } finally {
+                btn.textContent = '⬆ Subir aquí'; 
+                btn.style.background = '#16a34a';
+            }
         });
         document.getElementById('archivoInput').addEventListener('change', (e) => {
             document.getElementById('nombreSeleccionado').textContent = e.target.files.length > 0 ? `${e.target.files.length} archivo(s)` : 'Ningún archivo...';
@@ -105,7 +115,6 @@ function renderizarDirectorioActual() {
                 (usuarioLogueado.rol === 'admin' ? `<button onclick="desbloquearArchivo('${a.id}')" style="background:#475569;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:12px;">Desbloquear</button>` : '')
                 : `<button onclick="bloquearArchivo('${a.id}', '${a.webContentLink}')" style="background:#eab308;color:black;border:none;padding:6px;border-radius:4px;cursor:pointer;margin-right:5px;font-size:12px;font-weight:bold;">Bloquear</button><button onclick="eliminarArchivo('${a.id}')" style="background:#dc2626;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:12px;">Eliminar</button>`;
 
-            // CÁLCULO DE PESO REAL DEL ARCHIVO
             let pesoFormat = '-- KB';
             if (a.size) {
                 const bytes = parseInt(a.size);
@@ -113,8 +122,6 @@ function renderizarDirectorioActual() {
             }
 
             const tipoCarpeta = carpetaActual.nombre === 'Directorio Principal' ? 'RAÍZ' : carpetaActual.nombre.toUpperCase();
-            
-            // OBSERVACIÓN DESDE EL SERVIDOR (Google Drive)
             const obsValue = a.observacion || '';
             const inputObs = `<input type="text" value="${obsValue}" placeholder="Añadir nota..." onchange="guardarObservacionServidor('${a.id}', this.value)" style="width: 140px; padding: 4px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;">`;
 
@@ -141,23 +148,68 @@ async function desbloquearArchivo(id) { if(confirm('¿Forzar desbloqueo?')) { aw
 async function eliminarArchivo(id) { if (confirm('¿Eliminar documento?')) { await fetch(`/api/elementos/${id}`, { method: 'DELETE' }); cargarElementos(); } }
 async function reemplazarArchivo(id) { const i = document.createElement('input'); i.type = 'file'; i.onchange = async(e) => { if(e.target.files[0]) { const fd = new FormData(); fd.append('archivo', e.target.files[0]); alert('Subiendo reemplazo...'); await fetch(`/api/archivos/${id}`, { method: 'PUT', body: fd }); cargarElementos(); } }; i.click(); }
 
-// --- GUARDAR OBSERVACIÓN DIRECTO A GOOGLE DRIVE ---
 async function guardarObservacionServidor(id, texto) {
     const usr = JSON.parse(localStorage.getItem('usuarioPehuen'));
     const obsFinal = texto.trim() === '' ? '' : `(${usr.nombre}) ${texto}`;
     try { await fetch(`/api/elementos/${id}/observacion`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ observacion: obsFinal }) }); cargarElementos(); } catch(e) { alert('Error guardando observación'); }
 }
 
+// CORRECCIÓN DEL CLIMA (Se eliminó el [object Promise])
 async function cargarClimaLaja() {
     const w = document.getElementById('widgetClimaLaja'); if(!w) return; w.style.display = 'block';
     setInterval(() => document.getElementById('horaLocal').textContent = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }), 1000);
-    try { const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-37.28&longitude=-72.70&current_weather=true'); document.getElementById('climaInfo').textContent = `☁️ ${res.json().then(d => d.current_weather.temperature)}°C - Actual`; } catch(e) { document.getElementById('climaInfo').textContent = 'Clima no disp.'; }
+    try { 
+        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-37.28&longitude=-72.70&current_weather=true'); 
+        const data = await res.json();
+        document.getElementById('climaInfo').textContent = `☁️ ${data.current_weather.temperature}°C - Actual`; 
+    } catch(e) { 
+        document.getElementById('climaInfo').textContent = 'Clima no disp.'; 
+    }
 }
 
-// --- CHAT EN VIVO SINCRONIZADO POR SERVIDOR ---
 function toggleChat() {
     const c = document.getElementById('cuerpoChat'); const b = document.getElementById('btnMinimizarChat');
     if (c.style.display === 'none') { c.style.display = 'flex'; b.textContent = '−'; cargarChatNube(); } else { c.style.display = 'none'; b.textContent = '+'; }
+}
+
+function cambiarPestanaChat(modo) {
+    chatModoActual = modo;
+    const sel = document.getElementById('selectorPrivado');
+    const btnGen = document.getElementById('btnTabGeneral');
+    const btnPriv = document.getElementById('btnTabPrivado');
+    
+    if (modo === 'general') {
+        sel.style.display = 'none';
+        btnGen.style.background = '#0284c7';
+        btnPriv.style.background = '#475569';
+        usuarioDestinoPrivado = '';
+    } else {
+        sel.style.display = 'block';
+        btnGen.style.background = '#475569';
+        btnPriv.style.background = '#0284c7';
+        poblarSelectDestinatarios();
+    }
+    cargarChatNube();
+}
+
+function poblarSelectDestinatarios() {
+    const select = document.getElementById('selectDestinatario');
+    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+    fetch('/api/usuarios')
+        .then(res => res.json())
+        .then(usuarios => {
+            select.innerHTML = '<option value="">Selecciona un colega...</option>';
+            usuarios.forEach(u => {
+                if (u.nombre !== usuarioLogueado.nombre) {
+                    select.innerHTML += `<option value="${u.nombre}">${u.nombre} (${u.rol.toUpperCase()})</option>`;
+                }
+            });
+        });
+}
+
+function seleccionarChatPrivado() {
+    usuarioDestinoPrivado = document.getElementById('selectDestinatario').value;
+    cargarChatNube();
 }
 
 function initChat() {
@@ -165,22 +217,55 @@ function initChat() {
     const f = document.getElementById('formChat');
     if(f) {
         f.addEventListener('submit', async (e) => {
-            e.preventDefault(); const i = document.getElementById('inputChat'); if(!i.value.trim()) return;
-            const msg = { autor: JSON.parse(localStorage.getItem('usuarioPehuen')).nombre, texto: i.value, hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) };
+            e.preventDefault(); 
+            const i = document.getElementById('inputChat'); 
+            if(!i.value.trim()) return;
+
+            const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+            const destinario = chatModoActual === 'general' ? 'general' : usuarioDestinoPrivado;
+            
+            if (chatModoActual === 'privado' && !destinario) {
+                alert('Por favor selecciona un colega de la lista para escribirle por privado.');
+                return;
+            }
+
+            const msg = { 
+                autor: usuarioLogueado.nombre, 
+                destinario: destinario, 
+                texto: i.value, 
+                hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) 
+            };
+
             i.value = 'Enviando...'; i.disabled = true;
             await fetch('/api/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(msg) });
-            i.value = ''; i.disabled = false; i.focus(); cargarChatNube();
+            i.value = ''; i.disabled = false; i.focus(); 
+            cargarChatNube();
         });
     }
-    cargarChatNube(); setInterval(cargarChatNube, 5000); // Polling: se actualiza solo para todos cada 5 seg.
+    cargarChatNube(); 
+    setInterval(cargarChatNube, 5000);
 }
 
 async function cargarChatNube() {
     try {
-        const res = await fetch('/api/chat'); const historial = await res.json();
+        const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+        const res = await fetch('/api/chat'); 
+        const historial = await res.json();
         const c = document.getElementById('mensajesChat'); if(!c) return;
-        c.innerHTML = '<div style="text-align:center; color:#94a3b8; font-size:11px; margin-bottom:10px;">Chat Corporativo - Sincronizado en Drive</div>';
-        historial.forEach(m => c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:#0284c7;">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`);
+        
+        c.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:11px; margin-bottom:8px;">${chatModoActual === 'general' ? '🌐 Chat Empresa (General)' : '🔒 Privado con ' + (usuarioDestinoPrivado || '...')}</div>`;
+        
+        historial.forEach(m => {
+            if (chatModoActual === 'general') {
+                if (m.destinario === 'general' || !m.destinario) {
+                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:#0284c7;">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`;
+                }
+            } else {
+                if (usuarioDestinoPrivado && ((m.autor === usuarioLogueado.nombre && m.destinario === usuarioDestinoPrivado) || (m.autor === usuarioDestinoPrivado && m.destinario === usuarioLogueado.nombre))) {
+                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:#10b981;">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`;
+                }
+            }
+        });
         c.scrollTop = c.scrollHeight;
     } catch(e) {}
 }
