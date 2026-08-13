@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrarApp(usuarioLogueado);
     }
 
-    // --- LOGIN ---
     document.getElementById('formLogin').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('emailLogin').value;
@@ -18,492 +17,177 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
             const data = await res.json();
-            if (data.success) {
-                localStorage.setItem('usuarioPehuen', JSON.stringify(data.usuario));
-                mostrarApp(data.usuario);
-            } else {
-                document.getElementById('loginError').textContent = data.error;
-            }
-        } catch (err) {
-            document.getElementById('loginError').textContent = 'Error de conexión con el servidor.';
-        }
+            if (data.success) { localStorage.setItem('usuarioPehuen', JSON.stringify(data.usuario)); mostrarApp(data.usuario); }
+            else document.getElementById('loginError').textContent = data.error;
+        } catch (err) { document.getElementById('loginError').textContent = 'Error de conexión'; }
     });
 
-    // --- SUBIDA MASIVA Y CONTROL DE DUPLICADOS ---
     const formSubir = document.getElementById('formSubir');
     if (formSubir) {
         formSubir.addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('archivoInput');
             if (input.files.length === 0) return;
-
-            const carpetaActualId = historialRuta[historialRuta.length - 1].id;
             const formData = new FormData();
-            
-            // Agrega todos los archivos seleccionados al paquete
-            for (let i = 0; i < input.files.length; i++) {
-                formData.append('archivos', input.files[i]);
-            }
-            formData.append('parentId', carpetaActualId);
-
+            for (let i = 0; i < input.files.length; i++) formData.append('archivos', input.files[i]);
+            formData.append('parentId', historialRuta[historialRuta.length - 1].id);
             const btn = formSubir.querySelector('.btn-upload');
-            btn.textContent = 'Subiendo lote... ⏳';
-            btn.style.background = '#f59e0b';
-            
+            btn.textContent = 'Subiendo lote... ⏳'; btn.style.background = '#f59e0b';
             try {
                 const res = await fetch('/api/subir', { method: 'POST', body: formData });
                 const data = await res.json();
                 if (data.success) {
-                    let mensajeResultado = 'Resumen de carga:\n\n';
-                    data.files.forEach(f => {
-                        if (f.status === 'duplicado') {
-                            mensajeResultado += `⚠️ DUPLICADO: "${f.name}" ya existe. No se subió.\n`;
-                        } else {
-                            mensajeResultado += `✅ ÉXITO: "${f.name}" guardado.\n`;
-                        }
-                    });
-                    alert(mensajeResultado);
-                    input.value = '';
-                    document.getElementById('nombreSeleccionado').textContent = 'Ningún archivo...';
-                    cargarElementos();
+                    let msg = 'Resumen:\n';
+                    data.files.forEach(f => msg += f.status === 'duplicado' ? `⚠️ DUPLICADO: ${f.name}\n` : `✅ OK: ${f.name}\n`);
+                    alert(msg); input.value = ''; document.getElementById('nombreSeleccionado').textContent = 'Ningún archivo...'; cargarElementos();
                 } else alert('Error: ' + data.error);
-            } catch (err) { alert('Error de red durante la subida masiva.'); }
-            
-            btn.textContent = '⬆ Subir aquí';
-            btn.style.background = '#16a34a';
+            } catch (err) { alert('Error de red'); }
+            btn.textContent = '⬆ Subir aquí'; btn.style.background = '#16a34a';
         });
-
         document.getElementById('archivoInput').addEventListener('change', (e) => {
-            const cantidad = e.target.files.length;
-            document.getElementById('nombreSeleccionado').textContent = cantidad > 0 ? `${cantidad} archivo(s) listo(s)` : 'Ningún archivo...';
+            document.getElementById('nombreSeleccionado').textContent = e.target.files.length > 0 ? `${e.target.files.length} archivo(s)` : 'Ningún archivo...';
         });
     }
 
-    // --- BUSCADOR EN VIVO ---
-    const buscador = document.getElementById('inputBuscador');
-    if (buscador) {
-        buscador.addEventListener('input', () => {
-            renderizarDirectorioActual(); // Refresca la vista al teclear
-        });
-    }
-
-    // --- AGREGAR USUARIOS ---
-    const formUsuario = document.getElementById('formUsuario');
-    if (formUsuario) {
-        formUsuario.addEventListener('submit', async (e) => {
+    if (document.getElementById('inputBuscador')) document.getElementById('inputBuscador').addEventListener('input', renderizarDirectorioActual);
+    
+    if (document.getElementById('formUsuario')) {
+        document.getElementById('formUsuario').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const nombre = document.getElementById('nombreUser').value;
-            const email = document.getElementById('emailUser').value;
-            const password = document.getElementById('passUser').value;
-            const rol = document.getElementById('rolUser').value;
-
-            try {
-                const res = await fetch('/api/usuarios', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre, email, password, rol })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert('Usuario corporativo agregado correctamente.');
-                    formUsuario.reset();
-                    document.getElementById('passUser').value = 'pehuen123';
-                    cargarUsuarios();
-                }
-            } catch (error) { alert('Error al agregar usuario.'); }
+            const payload = { nombre: document.getElementById('nombreUser').value, email: document.getElementById('emailUser').value, password: document.getElementById('passUser').value, rol: document.getElementById('rolUser').value };
+            await fetch('/api/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            alert('Usuario agregado.'); document.getElementById('formUsuario').reset(); document.getElementById('passUser').value = 'pehuen123'; cargarUsuarios();
         });
     }
 });
 
-// --- INICIALIZACIÓN ---
 function mostrarApp(usuario) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('loginScreen').style.display = 'none'; document.getElementById('mainApp').style.display = 'block';
     document.getElementById('badgeUsuario').textContent = `${usuario.nombre} (${usuario.rol.toUpperCase()})`;
-    if (usuario.rol === 'admin') {
-        document.getElementById('btnAdmin').style.display = 'inline-block';
-        cargarUsuarios();
-    }
-    
-    // Iniciar Widgets
-    cargarClimaLaja();
-    initChat();
-    
-    cargarElementos();
+    if (usuario.rol === 'admin') { document.getElementById('btnAdmin').style.display = 'inline-block'; cargarUsuarios(); }
+    cargarClimaLaja(); initChat(); cargarElementos();
 }
+function cerrarSesion() { localStorage.removeItem('usuarioPehuen'); location.reload(); }
+async function cargarElementos() { const res = await fetch('/api/elementos'); todosLosElementos = await res.json(); renderizarDirectorioActual(); }
 
-function cerrarSesion() {
-    localStorage.removeItem('usuarioPehuen');
-    location.reload();
-}
-
-async function cargarElementos() {
-    try {
-        const res = await fetch('/api/elementos');
-        todosLosElementos = await res.json();
-        renderizarDirectorioActual();
-    } catch (err) { console.error('Error cargando elementos desde Drive', err); }
-}
-
-// --- RENDERIZADO INTELIGENTE (Grilla y Tablas) ---
 function renderizarDirectorioActual() {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
     const carpetaActual = historialRuta[historialRuta.length - 1];
-    
-    // Títulos y Botones de navegación
     document.getElementById('tituloDirectorio').textContent = `📁 ${carpetaActual.nombre}`;
     
-    const btnVolver = document.getElementById('btnVolverAtras');
-    const btnHome = document.getElementById('btnHome');
-    if (historialRuta.length > 1) {
-        btnVolver.style.display = 'inline-block';
-        btnHome.style.display = 'inline-block';
-    } else {
-        btnVolver.style.display = 'none';
-        btnHome.style.display = 'none';
-    }
+    const navDisp = historialRuta.length > 1 ? 'inline-block' : 'none';
+    document.getElementById('btnVolverAtras').style.display = navDisp; document.getElementById('btnHome').style.display = navDisp;
 
-    const grilla = document.getElementById('grillaDirectorio');
-    const contenedorTabla = document.getElementById('contenedorTablaArchivos');
-    const listaArchivos = document.getElementById('listaArchivosCarpeta');
+    const grilla = document.getElementById('grillaDirectorio'); const lista = document.getElementById('listaArchivosCarpeta');
+    grilla.innerHTML = ''; lista.innerHTML = '';
     const buscador = document.getElementById('inputBuscador') ? document.getElementById('inputBuscador').value.toLowerCase() : '';
 
-    grilla.innerHTML = '';
-    listaArchivos.innerHTML = '';
+    let elementos = carpetaActual.id === '' ? todosLosElementos.filter(e => e.parentId === (todosLosElementos.filter(x=>x.esCarpeta).map(x=>x.parentId)[0] || '') || e.parentId === '') : todosLosElementos.filter(e => e.parentId === carpetaActual.id);
+    let carpetas = elementos.filter(e => e.esCarpeta); let archivos = elementos.filter(e => !e.esCarpeta);
+    if (buscador) { carpetas = carpetas.filter(c => c.name.toLowerCase().includes(buscador)); archivos = archivos.filter(a => a.name.toLowerCase().includes(buscador)); }
+    if (document.getElementById('contadorArchivos')) document.getElementById('contadorArchivos').textContent = `(${archivos.length} archivos)`;
 
-    // Filtrar elementos de la carpeta actual
-    let elementosEnNivel = [];
-    if(carpetaActual.id === '') {
-        const idsPrimarios = todosLosElementos.filter(e => e.esCarpeta).map(e => e.parentId);
-        const raizIdReal = idsPrimarios[0] || ''; 
-        elementosEnNivel = todosLosElementos.filter(e => e.parentId === raizIdReal || e.parentId === '');
-    } else {
-        elementosEnNivel = todosLosElementos.filter(e => e.parentId === carpetaActual.id);
-    }
-
-    let carpetasFiltradas = elementosEnNivel.filter(e => e.esCarpeta);
-    let archivosFiltrados = elementosEnNivel.filter(e => !e.esCarpeta);
-
-    // Aplicar filtro del Buscador si hay texto escrito
-    if (buscador.trim() !== '') {
-        carpetasFiltradas = carpetasFiltradas.filter(c => c.name.toLowerCase().includes(buscador));
-        archivosFiltrados = archivosFiltrados.filter(a => a.name.toLowerCase().includes(buscador));
-    }
-
-    // Actualizar contador superior de archivos
-    const contador = document.getElementById('contadorArchivos');
-    if (contador) contador.textContent = `(${archivosFiltrados.length} archivos)`;
-
-    // Dibujar Tarjetas de Carpetas
-    if (carpetasFiltradas.length === 0 && archivosFiltrados.length === 0) {
-        grilla.innerHTML = `<p style="color: #64748b; grid-column: 1/-1;">${buscador ? 'No se encontraron resultados en esta carpeta.' : 'Esta carpeta está vacía.'}</p>`;
-    } else {
-        carpetasFiltradas.forEach(c => {
-            let botonesAdminCarpeta = '';
-            if (usuarioLogueado.rol === 'admin') {
-                botonesAdminCarpeta = `
-                    <div style="margin-top: 10px; display: flex; justify-content: center; gap: 5px;" onclick="event.stopPropagation()">
-                        <button onclick="renombrarCarpeta('${c.id}', '${c.name}')" style="background: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;" title="Renombrar">✏️</button>
-                        <button onclick="eliminarCarpeta('${c.id}', '${c.name}')" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;" title="Eliminar">🗑️</button>
-                    </div>`;
-            }
-
-            grilla.innerHTML += `
-                <div class="folder-card" onclick="entrarCarpeta('${c.id}', '${c.name}')">
-                    <div class="folder-icon">📁</div>
-                    <h3>${c.name}</h3>
-                    <p>Subcarpeta</p>
-                    ${botonesAdminCarpeta}
-                </div>`;
+    if (carpetas.length === 0 && archivos.length === 0) { grilla.innerHTML = `<p style="color: #64748b;">${buscador ? 'Sin resultados.' : 'Carpeta vacía.'}</p>`; }
+    else {
+        carpetas.forEach(c => {
+            const btns = usuarioLogueado.rol === 'admin' ? `<div style="margin-top:10px; display:flex; justify-content:center; gap:5px;" onclick="event.stopPropagation()"><button onclick="renombrarCarpeta('${c.id}', '${c.name}')" style="background:#0284c7;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">✏️</button><button onclick="eliminarCarpeta('${c.id}', '${c.name}')" style="background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">🗑️</button></div>` : '';
+            grilla.innerHTML += `<div class="folder-card" onclick="entrarCarpeta('${c.id}', '${c.name}')"><div class="folder-icon">📁</div><h3>${c.name}</h3><p>Subcarpeta</p>${btns}</div>`;
         });
     }
 
-    // Dibujar Tabla de Archivos
-    if (archivosFiltrados.length > 0) {
-        contenedorTabla.style.display = 'block';
+    if (archivos.length > 0) {
+        document.getElementById('contenedorTablaArchivos').style.display = 'block';
+        archivos.forEach((a, index) => {
+            const enUso = a.estado === 'EN_USO';
+            let etiqueta = enUso ? `<span style="background:#f59e0b; color:white; padding:2px 6px; border-radius:4px; font-size:11px;">🔒 En uso por ${a.bloqueadoPor}</span>` : '';
+            let botones = enUso ? 
+                (((a.bloqueadoPor === usuarioLogueado.nombre) || usuarioLogueado.rol === 'admin') ? `<button onclick="reemplazarArchivo('${a.id}')" style="background:#0284c7;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer;margin-right:5px;font-size:12px;">⬆ Modificado</button>` : '') +
+                (usuarioLogueado.rol === 'admin' ? `<button onclick="desbloquearArchivo('${a.id}')" style="background:#475569;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:12px;">Desbloquear</button>` : '')
+                : `<button onclick="bloquearArchivo('${a.id}', '${a.webContentLink}')" style="background:#eab308;color:black;border:none;padding:6px;border-radius:4px;cursor:pointer;margin-right:5px;font-size:12px;font-weight:bold;">Bloquear</button><button onclick="eliminarArchivo('${a.id}')" style="background:#dc2626;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:12px;">Eliminar</button>`;
 
-        archivosFiltrados.forEach((a, index) => {
-            const estaEnUso = a.estado === 'EN_USO';
-            const esDueño = a.bloqueadoPor === usuarioLogueado.nombre;
-            const esAdmin = usuarioLogueado.rol === 'admin';
-            
-            let etiquetaEstado = estaEnUso ? `<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">🔒 En uso por ${a.bloqueadoPor}</span>` : '';
-            
-            // ACCIONES
-            let botones = '';
-            if (estaEnUso) {
-                if (esDueño || esAdmin) {
-                    botones += `<button onclick="reemplazarArchivo('${a.id}')" style="background: #0284c7; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 12px;">⬆ Subir Modificado</button>`;
-                }
-                if (esAdmin) {
-                    botones += `<button onclick="desbloquearArchivo('${a.id}')" style="background: #475569; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px;">Desbloquear</button>`;
-                }
-                botones += `<button style="background: #ccc; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 12px;" disabled>Eliminar</button>`;
-            } else {
-                botones += `<button onclick="bloquearArchivo('${a.id}', '${a.webContentLink}')" style="background: #eab308; color: black; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 12px; font-weight: bold;">Bloquear</button>`;
-                botones += `<button onclick="eliminarArchivo('${a.id}')" style="background: #dc2626; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Eliminar</button>`;
+            // CÁLCULO DE PESO REAL DEL ARCHIVO
+            let pesoFormat = '-- KB';
+            if (a.size) {
+                const bytes = parseInt(a.size);
+                pesoFormat = bytes < 1048576 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / 1048576).toFixed(1) + ' MB';
             }
 
-            // DATOS NUEVOS (N°, Carpeta, Peso, Observaciones)
-            const correlativo = index + 1;
-            const nombreTipoCarpeta = carpetaActual.nombre === 'Directorio Principal' ? 'RAÍZ' : carpetaActual.nombre.toUpperCase();
-            const pesoFile = '-- KB'; // (Drive oculta el peso por defecto, pero dejamos la columna lista)
+            const tipoCarpeta = carpetaActual.nombre === 'Directorio Principal' ? 'RAÍZ' : carpetaActual.nombre.toUpperCase();
             
-            // Recuperar nota guardada localmente
-            const notaGuardada = localStorage.getItem(`obs_${a.id}`) || '';
-            const casillaObservacion = `<input type="text" value="${notaGuardada}" placeholder="Añadir nota..." onchange="guardarObservacionLocal('${a.id}', this.value)" style="width: 140px; padding: 4px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-family: 'Inter', sans-serif;">`;
+            // OBSERVACIÓN DESDE EL SERVIDOR (Google Drive)
+            const obsValue = a.observacion || '';
+            const inputObs = `<input type="text" value="${obsValue}" placeholder="Añadir nota..." onchange="guardarObservacionServidor('${a.id}', this.value)" style="width: 140px; padding: 4px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;">`;
 
-            listaArchivos.innerHTML += `
-                <tr>
-                    <td style="text-align: center; font-weight: bold; color: #64748b;">${correlativo}</td>
-                    <td><strong style="color: #475569;">${nombreTipoCarpeta}</strong></td>
-                    <td>
-                        <a href="${a.webViewLink}" target="_blank" style="color: #004080; font-weight: 500; text-decoration: none;">${a.name}</a><br>
-                        ${etiquetaEstado}
-                    </td>
-                    <td style="color: #64748b; font-size: 12px;">${pesoFile}</td>
-                    <td>${a.createdTime ? new Date(a.createdTime).toLocaleDateString() : 'Reciente'}</td>
-                    <td>${casillaObservacion}</td>
-                    <td>${botones}</td>
-                </tr>`;
+            lista.innerHTML += `<tr><td style="text-align:center;font-weight:bold;color:#64748b;">${index + 1}</td><td><strong style="color:#475569;">${tipoCarpeta}</strong></td><td><a href="${a.webViewLink}" target="_blank" style="color:#004080;font-weight:500;text-decoration:none;">${a.name}</a><br>${etiqueta}</td><td style="color:#64748b;font-size:12px;white-space:nowrap;">${pesoFormat}</td><td>${a.createdTime ? new Date(a.createdTime).toLocaleDateString() : 'Reciente'}</td><td>${inputObs}</td><td>${botones}</td></tr>`;
         });
-    } else {
-        contenedorTabla.style.display = 'none';
-    }
+    } else document.getElementById('contenedorTablaArchivos').style.display = 'none';
 }
 
-// --- NAVEGACIÓN ---
-function entrarCarpeta(id, nombre) {
-    historialRuta.push({ id: id, nombre: nombre });
-    if(document.getElementById('inputBuscador')) document.getElementById('inputBuscador').value = '';
-    renderizarDirectorioActual();
-}
+function entrarCarpeta(id, nombre) { historialRuta.push({ id, nombre }); if(document.getElementById('inputBuscador')) document.getElementById('inputBuscador').value = ''; renderizarDirectorioActual(); }
+function subirNivelCarpeta() { if (historialRuta.length > 1) { historialRuta.pop(); if(document.getElementById('inputBuscador')) document.getElementById('inputBuscador').value = ''; renderizarDirectorioActual(); } }
+function irAlInicio() { historialRuta = [{ id: '', nombre: 'Directorio Principal' }]; if(document.getElementById('inputBuscador')) document.getElementById('inputBuscador').value = ''; renderizarDirectorioActual(); }
 
-function subirNivelCarpeta() {
-    if (historialRuta.length > 1) {
-        historialRuta.pop();
-        if(document.getElementById('inputBuscador')) document.getElementById('inputBuscador').value = '';
-        renderizarDirectorioActual();
-    }
-}
-
-function irAlInicio() {
-    historialRuta = [{ id: '', nombre: 'Directorio Principal' }];
-    if(document.getElementById('inputBuscador')) document.getElementById('inputBuscador').value = '';
-    renderizarDirectorioActual();
-}
-
-// --- CREAR CARPETA Y CONTROL DE PERMISOS ---
 async function crearCarpetaActual() {
-    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
-    
-    // Bloqueo estricto: Solo admin crea en la raíz
-    if (historialRuta.length === 1 && usuarioLogueado.rol !== 'admin') {
-        alert('⛔ Acceso Denegado: Solo los Administradores Técnicos pueden crear Carpetas Principales en este nivel (Ej: CRITERIOS DE EVALUACIÓN EMPRESAS, EMPRESA).');
-        return;
-    }
-
-    const nombre = prompt('Ingresa el nombre de la nueva carpeta:');
-    if (!nombre || !nombre.trim()) return;
-
-    const carpetaActualId = historialRuta[historialRuta.length - 1].id;
-
-    try {
-        const res = await fetch('/api/carpetas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre: nombre.trim(), parentId: carpetaActualId })
-        });
-        const data = await res.json();
-        if (data.success) {
-            cargarElementos(); // El servidor ya sabe si era nueva o si se evitó un duplicado
-        } else {
-            alert('No se pudo crear la carpeta.');
-        }
-    } catch (err) {
-        alert('Error de red al crear la carpeta.');
-    }
-}
-
-// --- OBSERVACIONES (Almacenamiento Frontend Rápido) ---
-function guardarObservacionLocal(idArchivo, texto) {
-    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
-    if (texto.trim() === '') {
-        localStorage.removeItem(`obs_${idArchivo}`);
-    } else {
-        localStorage.setItem(`obs_${idArchivo}`, `(${usuarioLogueado.nombre}) ${texto}`);
-    }
-    renderizarDirectorioActual(); // Refresca para mostrar el nombre del autor
-}
-
-
-// --- FUNCIONES ADMIN PARA CARPETAS ---
-async function renombrarCarpeta(id, nombreActual) {
-    const nuevoNombre = prompt('Ingresa el nuevo nombre para la carpeta:', nombreActual);
-    if (!nuevoNombre || !nuevoNombre.trim() || nuevoNombre === nombreActual) return;
-    try {
-        const res = await fetch(`/api/elementos/${id}/renombrar`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nuevoNombre: nuevoNombre.trim() }) });
-        const data = await res.json();
-        if (data.success) cargarElementos();
-    } catch (err) { alert('Error de red al renombrar.'); }
-}
-
-async function eliminarCarpeta(id, nombre) {
-    if (confirm(`¿Estás seguro de eliminar la carpeta "${nombre}"? Nota: Google Drive requiere que esté vacía.`)) {
-        try {
-            const res = await fetch(`/api/elementos/${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (data.success) cargarElementos();
-            else alert('No se pudo eliminar. Asegúrate de que la carpeta esté vacía.');
-        } catch (err) { alert('Error de red al eliminar.'); }
-    }
-}
-
-// --- BLOQUEOS Y REEMPLAZO DE ARCHIVOS ---
-async function bloquearArchivo(id, linkDescarga) {
-    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
-    await fetch(`/api/archivos/${id}/bloquear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario: usuarioLogueado.nombre }) });
-    if(linkDescarga) window.open(linkDescarga, '_blank');
+    if (historialRuta.length === 1 && JSON.parse(localStorage.getItem('usuarioPehuen')).rol !== 'admin') { alert('⛔ Solo Administradores pueden crear Carpetas Principales.'); return; }
+    const nombre = prompt('Ingresa el nombre:'); if (!nombre || !nombre.trim()) return;
+    await fetch('/api/carpetas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: nombre.trim(), parentId: historialRuta[historialRuta.length - 1].id }) });
     cargarElementos();
 }
 
-async function desbloquearArchivo(id) {
-    if(confirm('¿Forzar desbloqueo del archivo?')) {
-        await fetch(`/api/archivos/${id}/desbloquear`, { method: 'POST' });
-        cargarElementos();
-    }
+async function renombrarCarpeta(id, actual) { const nuevo = prompt('Nuevo nombre:', actual); if (nuevo && nuevo.trim() !== actual) { await fetch(`/api/elementos/${id}/renombrar`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nuevoNombre: nuevo.trim() }) }); cargarElementos(); } }
+async function eliminarCarpeta(id, n) { if (confirm(`¿Eliminar "${n}"? Debe estar vacía.`)) { await fetch(`/api/elementos/${id}`, { method: 'DELETE' }); cargarElementos(); } }
+async function bloquearArchivo(id, l) { await fetch(`/api/archivos/${id}/bloquear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario: JSON.parse(localStorage.getItem('usuarioPehuen')).nombre }) }); if(l) window.open(l, '_blank'); cargarElementos(); }
+async function desbloquearArchivo(id) { if(confirm('¿Forzar desbloqueo?')) { await fetch(`/api/archivos/${id}/desbloquear`, { method: 'POST' }); cargarElementos(); } }
+async function eliminarArchivo(id) { if (confirm('¿Eliminar documento?')) { await fetch(`/api/elementos/${id}`, { method: 'DELETE' }); cargarElementos(); } }
+async function reemplazarArchivo(id) { const i = document.createElement('input'); i.type = 'file'; i.onchange = async(e) => { if(e.target.files[0]) { const fd = new FormData(); fd.append('archivo', e.target.files[0]); alert('Subiendo reemplazo...'); await fetch(`/api/archivos/${id}`, { method: 'PUT', body: fd }); cargarElementos(); } }; i.click(); }
+
+// --- GUARDAR OBSERVACIÓN DIRECTO A GOOGLE DRIVE ---
+async function guardarObservacionServidor(id, texto) {
+    const usr = JSON.parse(localStorage.getItem('usuarioPehuen'));
+    const obsFinal = texto.trim() === '' ? '' : `(${usr.nombre}) ${texto}`;
+    try { await fetch(`/api/elementos/${id}/observacion`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ observacion: obsFinal }) }); cargarElementos(); } catch(e) { alert('Error guardando observación'); }
 }
 
-async function eliminarArchivo(id) {
-    if (confirm('¿Estás seguro de eliminar este documento?')) {
-        await fetch(`/api/elementos/${id}`, { method: 'DELETE' });
-        cargarElementos();
-    }
-}
-
-async function reemplazarArchivo(id) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const formData = new FormData();
-        formData.append('archivo', file);
-        alert('Subiendo archivo actualizado... (El duplicado es intencional aquí)');
-        await fetch(`/api/archivos/${id}`, { method: 'PUT', body: formData });
-        cargarElementos();
-    };
-    input.click();
-}
-
-// --- WIDGET CLIMA LAJA (Octava Región) ---
 async function cargarClimaLaja() {
-    const widget = document.getElementById('widgetClimaLaja');
-    if(!widget) return;
-    widget.style.display = 'block';
-
-    // Reloj en vivo
-    setInterval(() => {
-        const now = new Date();
-        document.getElementById('horaLocal').textContent = now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
-    }, 1000);
-
-    // Consulta satelital coordenadas Laja (Lat: -37.2833, Lon: -72.7)
-    try {
-        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-37.28&longitude=-72.70&current_weather=true');
-        const data = await res.json();
-        const temp = data.current_weather.temperature;
-        document.getElementById('climaInfo').textContent = `☁️ ${temp}°C - Actual`;
-    } catch(e) {
-        document.getElementById('climaInfo').textContent = 'Clima no disponible';
-    }
+    const w = document.getElementById('widgetClimaLaja'); if(!w) return; w.style.display = 'block';
+    setInterval(() => document.getElementById('horaLocal').textContent = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }), 1000);
+    try { const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-37.28&longitude=-72.70&current_weather=true'); document.getElementById('climaInfo').textContent = `☁️ ${res.json().then(d => d.current_weather.temperature)}°C - Actual`; } catch(e) { document.getElementById('climaInfo').textContent = 'Clima no disp.'; }
 }
 
-// --- CHAT CORPORATIVO INTERNO ---
+// --- CHAT EN VIVO SINCRONIZADO POR SERVIDOR ---
 function toggleChat() {
-    const cuerpo = document.getElementById('cuerpoChat');
-    const btn = document.getElementById('btnMinimizarChat');
-    if (cuerpo.style.display === 'none') {
-        cuerpo.style.display = 'flex';
-        btn.textContent = '−';
-    } else {
-        cuerpo.style.display = 'none';
-        btn.textContent = '+';
-    }
+    const c = document.getElementById('cuerpoChat'); const b = document.getElementById('btnMinimizarChat');
+    if (c.style.display === 'none') { c.style.display = 'flex'; b.textContent = '−'; cargarChatNube(); } else { c.style.display = 'none'; b.textContent = '+'; }
 }
 
 function initChat() {
-    const chatWidget = document.getElementById('chatCorporativo');
-    if(chatWidget) chatWidget.style.display = 'flex';
-
-    const formChat = document.getElementById('formChat');
-    if(formChat) {
-        formChat.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const input = document.getElementById('inputChat');
-            if(!input.value.trim()) return;
-
-            const usuario = JSON.parse(localStorage.getItem('usuarioPehuen'));
-            const mensaje = { autor: usuario.nombre, texto: input.value, hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) };
-
-            // Guarda el chat localmente para sincronizar entre pestañas
-            let historial = JSON.parse(localStorage.getItem('chatPehuen_historial')) || [];
-            historial.push(mensaje);
-            localStorage.setItem('chatPehuen_historial', JSON.stringify(historial));
-
-            input.value = '';
-            renderizarChat();
+    const w = document.getElementById('chatCorporativo'); if(w) w.style.display = 'flex';
+    const f = document.getElementById('formChat');
+    if(f) {
+        f.addEventListener('submit', async (e) => {
+            e.preventDefault(); const i = document.getElementById('inputChat'); if(!i.value.trim()) return;
+            const msg = { autor: JSON.parse(localStorage.getItem('usuarioPehuen')).nombre, texto: i.value, hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) };
+            i.value = 'Enviando...'; i.disabled = true;
+            await fetch('/api/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(msg) });
+            i.value = ''; i.disabled = false; i.focus(); cargarChatNube();
         });
     }
-
-    // Sincronización en vivo si otro ingeniero escribe en otra pestaña
-    window.addEventListener('storage', (e) => {
-        if(e.key === 'chatPehuen_historial') renderizarChat();
-    });
-
-    renderizarChat();
+    cargarChatNube(); setInterval(cargarChatNube, 5000); // Polling: se actualiza solo para todos cada 5 seg.
 }
 
-function renderizarChat() {
-    const container = document.getElementById('mensajesChat');
-    if(!container) return;
-    
-    const historial = JSON.parse(localStorage.getItem('chatPehuen_historial')) || [];
-    container.innerHTML = '<div style="text-align: center; color: #94a3b8; font-size: 11px; margin-bottom: 10px;">Chat Interno - Encriptado</div>';
-    
-    historial.forEach(m => {
-        container.innerHTML += `
-            <div style="margin-bottom: 8px; line-height: 1.2;">
-                <span style="font-weight: bold; color: #0284c7;">${m.autor}</span> 
-                <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br>
-                <span style="color: #334155;">${m.texto}</span>
-            </div>`;
-    });
-    container.scrollTop = container.scrollHeight; // Auto-scroll al final
+async function cargarChatNube() {
+    try {
+        const res = await fetch('/api/chat'); const historial = await res.json();
+        const c = document.getElementById('mensajesChat'); if(!c) return;
+        c.innerHTML = '<div style="text-align:center; color:#94a3b8; font-size:11px; margin-bottom:10px;">Chat Corporativo - Sincronizado en Drive</div>';
+        historial.forEach(m => c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:#0284c7;">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`);
+        c.scrollTop = c.scrollHeight;
+    } catch(e) {}
 }
 
-// --- GESTIÓN DE USUARIOS ---
 async function cargarUsuarios() {
-    const res = await fetch('/api/usuarios');
-    const usuarios = await res.json();
-    const lista = document.getElementById('listaUsuarios');
-    lista.innerHTML = '';
-    usuarios.forEach(u => {
-        lista.innerHTML += `<tr>
-            <td>${u.nombre}</td><td>${u.email}</td><td>${u.rol.toUpperCase()}</td>
-            <td><button onclick="eliminarUser(${u.id})" style="background:red; color:white; padding:2px 5px; border:none; cursor:pointer; font-weight: bold;">X</button></td>
-        </tr>`;
-    });
+    const usrs = await (await fetch('/api/usuarios')).json(); const l = document.getElementById('listaUsuarios'); l.innerHTML = '';
+    usrs.forEach(u => l.innerHTML += `<tr><td>${u.nombre}</td><td>${u.email}</td><td>${u.rol.toUpperCase()}</td><td><button onclick="eliminarUser(${u.id})" style="background:red; color:white; padding:2px 5px; border:none; cursor:pointer; font-weight:bold;">X</button></td></tr>`);
 }
-
-async function eliminarUser(id) {
-    if(confirm('¿Estás seguro de revocar el acceso a este usuario?')) {
-        await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
-        cargarUsuarios();
-    }
-}
-
-function toggleAdminModal() {
-    const modal = document.getElementById('adminModal');
-    modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
-}
+async function eliminarUser(id) { if(confirm('¿Revocar acceso?')) { await fetch(`/api/usuarios/${id}`, { method: 'DELETE' }); cargarUsuarios(); } }
+function toggleAdminModal() { const m = document.getElementById('adminModal'); m.style.display = m.style.display === 'flex' ? 'none' : 'flex'; }
