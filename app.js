@@ -2,6 +2,18 @@ let todosLosElementos = [];
 let historialRuta = [{ id: '', nombre: 'Directorio Principal' }];
 let chatModoActual = 'general';
 let usuarioDestinoPrivado = '';
+let cantidadMensajesUltimaVez = 0;
+let chatAbierto = true;
+
+// GENERADOR DE COLOR AUTOMÁTICO SEGÚN EL NOMBRE
+function obtenerColorAutor(nombre) {
+    const colores = ['#0284c7', '#059669', '#d97706', '#7c3aed', '#db2777', '#2563eb', '#ca8a04', '#0d9488'];
+    let hash = 0;
+    for (let i = 0; i < nombre.length; i++) {
+        hash = nombre.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colores[Math.abs(hash) % colores.length];
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
@@ -35,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('parentId', historialRuta[historialRuta.length - 1].id);
             
             const btn = formSubir.querySelector('.btn-upload');
-            btn.textContent = 'Subiendo lote... ⏳'; btn.style.background = '#f59e0b';
+            btn.textContent = 'Subiendo... ⏳'; btn.style.background = '#f59e0b';
             
             try {
                 const res = await fetch('/api/subir', { method: 'POST', body: formData });
@@ -50,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) { 
                 alert('Error de red al subir los archivos.'); 
             } finally {
-                btn.textContent = '⬆ Subir aquí'; 
+                btn.textContent = '⬆ Subir'; 
                 btn.style.background = '#16a34a';
             }
         });
@@ -92,7 +104,6 @@ function renderizarDirectorioActual() {
     grilla.innerHTML = ''; lista.innerHTML = '';
     const buscador = document.getElementById('inputBuscador') ? document.getElementById('inputBuscador').value.toLowerCase() : '';
 
-    // FILTRADO ROBUSTO USANDO LA ETIQUETA OFICIAL 'esRaiz'
     let elementos = carpetaActual.id === '' 
         ? todosLosElementos.filter(e => e.esRaiz) 
         : todosLosElementos.filter(e => e.parentId === carpetaActual.id);
@@ -173,8 +184,19 @@ async function cargarClimaLaja() {
 }
 
 function toggleChat() {
-    const c = document.getElementById('cuerpoChat'); const b = document.getElementById('btnMinimizarChat');
-    if (c.style.display === 'none') { c.style.display = 'flex'; b.textContent = '−'; cargarChatNube(); } else { c.style.display = 'none'; b.textContent = '+'; }
+    const c = document.getElementById('cuerpoChat'); 
+    const b = document.getElementById('btnMinimizarChat');
+    if (c.style.display === 'none') { 
+        c.style.display = 'flex'; 
+        b.textContent = '−'; 
+        chatAbierto = true;
+        document.getElementById('badgeNotifChat').style.display = 'none'; // Al abrir, borra la alerta
+        cargarChatNube(); 
+    } else { 
+        c.style.display = 'none'; 
+        b.textContent = '+'; 
+        chatAbierto = false;
+    }
 }
 
 function cambiarPestanaChat(modo) {
@@ -248,7 +270,7 @@ function initChat() {
         });
     }
     cargarChatNube(); 
-    setInterval(cargarChatNube, 5000);
+    setInterval(cargarChatNube, 4000);
 }
 
 async function cargarChatNube() {
@@ -256,18 +278,29 @@ async function cargarChatNube() {
         const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
         const res = await fetch('/api/chat'); 
         const historial = await res.json();
+        
+        // NOTIFICACIÓN DE MENSAJES NUEVOS SI EL CHAT ESTÁ MINIMIZADO O LLEGÓ ALGO NUEVO
+        if (historial.length > cantidadMensajesUltimaVez && cantidadMensajesUltimaVez > 0) {
+            const ultimoMsg = historial[historial.length - 1];
+            if (ultimoMsg.autor !== usuarioLogueado.nombre) {
+                document.getElementById('badgeNotifChat').style.display = 'inline-block';
+            }
+        }
+        cantidadMensajesUltimaVez = historial.length;
+
         const c = document.getElementById('mensajesChat'); if(!c) return;
         
         c.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:11px; margin-bottom:8px;">${chatModoActual === 'general' ? '🌐 Chat Empresa (General)' : '🔒 Privado con ' + (usuarioDestinoPrivado || '...')}</div>`;
         
         historial.forEach(m => {
+            const colorAutor = obtenerColorAutor(m.autor);
             if (chatModoActual === 'general') {
                 if (m.destinario === 'general' || !m.destinario) {
-                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:#0284c7;">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`;
+                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:${colorAutor};">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`;
                 }
             } else {
                 if (usuarioDestinoPrivado && ((m.autor === usuarioLogueado.nombre && m.destinario === usuarioDestinoPrivado) || (m.autor === usuarioDestinoPrivado && m.destinario === usuarioLogueado.nombre))) {
-                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:#10b981;">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`;
+                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:${colorAutor};">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`;
                 }
             }
         });
