@@ -76,8 +76,20 @@
                 
                 <div id="grillaDirectorio" class="folder-grid"></div>
 
+                <!-- CONTENEDOR DE TABLA Y BARRA DE SUBIDA REUBICADA ARRIBA -->
                 <div id="contenedorTablaArchivos" style="margin-top: 30px; display: none;">
-                    <h3>Documentos en esta ubicación <span id="contadorArchivos" style="font-size: 14px; color: #64748b; font-weight: normal; margin-left: 10px;">(0 archivos)</span></h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+                        <h3 style="margin: 0;">Documentos en esta ubicación <span id="contadorArchivos" style="font-size: 14px; color: #64748b; font-weight: normal; margin-left: 10px;">(0 archivos)</span></h3>
+                        
+                        <!-- FORMULARIO DE SUBIDA MASIVA UBICADO ARRIBA SOBRE LA BARRA NEGRA -->
+                        <form id="formSubir" style="display: flex; gap: 8px; align-items: center; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                            <label for="archivoInput" class="btn-select" style="margin: 0; cursor: pointer; background: white; padding: 4px 10px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 12px;">📁 Seleccionar Archivos</label>
+                            <input type="file" id="archivoInput" multiple required style="display: none;">
+                            <span id="nombreSeleccionado" class="file-name" style="font-size: 12px; color: #64748b; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Ningún archivo...</span>
+                            <button type="submit" class="btn-upload" style="background: #16a34a; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">⬆ Subir</button>
+                        </form>
+                    </div>
+
                     <section class="table-container">
                         <table class="tech-table">
                             <thead>
@@ -94,16 +106,6 @@
                             <tbody id="listaArchivosCarpeta"></tbody>
                         </table>
                     </section>
-                </div>
-
-                <div style="margin-top: 30px; background: #f1f5f9; padding: 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                    <strong>Subir archivo(s) en esta ubicación actual:</strong>
-                    <form id="formSubir" style="display: flex; gap: 10px; align-items: center;">
-                        <label for="archivoInput" class="btn-select" style="margin: 0; cursor: pointer; background: white; padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 13px;">📁 Seleccionar Archivos</label>
-                        <input type="file" id="archivoInput" multiple required style="display: none;">
-                        <span id="nombreSeleccionado" class="file-name" style="font-size: 13px; color: #64748b;">Ningún archivo...</span>
-                        <button type="submit" class="btn-upload" style="background: #16a34a; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">⬆ Subir aquí</button>
-                    </form>
                 </div>
             </div>
 
@@ -144,10 +146,14 @@
         <div id="climaInfo" style="font-size: 13px;">☁️ Cargando clima...</div>
     </div>
 
-    <!-- CHAT DUAL CORPORATIVO (Empresa y Privado 1 a 1) -->
+    <!-- CHAT DUAL CON NOTIFICACIÓN DE NUEVOS MENSAJES Y COLORES -->
     <div id="chatCorporativo" class="flotante-widget" style="bottom: 20px; left: 20px; width: 320px; background: white; border: 1px solid #cbd5e1; display: none; flex-direction: column;">
         <div style="background: #1e293b; color: white; padding: 8px 10px; border-radius: 8px 8px 0 0; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 13px;">💬 Chat Interno</span>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 13px;" id="tituloChatBarra">💬 Chat Interno</span>
+                <!-- BADGE DE NOTIFICACIÓN DE MENSAJES NUEVOS -->
+                <span id="badgeNotifChat" style="background: #dc2626; color: white; padding: 1px 6px; border-radius: 10px; font-size: 10px; display: none; font-weight: bold;">¡Nuevo!</span>
+            </div>
             <div style="display: flex; gap: 5px; align-items: center;">
                 <button onclick="cambiarPestanaChat('general')" id="btnTabGeneral" style="background: #0284c7; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 11px; cursor: pointer; font-weight: bold;">Empresa</button>
                 <button onclick="cambiarPestanaChat('privado')" id="btnTabPrivado" style="background: #475569; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 11px; cursor: pointer; font-weight: bold;">Directos</button>
