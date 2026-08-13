@@ -92,16 +92,22 @@ function renderizarDirectorioActual() {
     grilla.innerHTML = ''; lista.innerHTML = '';
     const buscador = document.getElementById('inputBuscador') ? document.getElementById('inputBuscador').value.toLowerCase() : '';
 
-    let elementos = carpetaActual.id === '' ? todosLosElementos.filter(e => e.parentId === (todosLosElementos.filter(x=>x.esCarpeta).map(x=>x.parentId)[0] || '') || e.parentId === '') : todosLosElementos.filter(e => e.parentId === carpetaActual.id);
-    let carpetas = elementos.filter(e => e.esCarpeta); let archivos = elementos.filter(e => !e.esCarpeta);
+    // FILTRADO ROBUSTO USANDO LA ETIQUETA OFICIAL 'esRaiz'
+    let elementos = carpetaActual.id === '' 
+        ? todosLosElementos.filter(e => e.esRaiz) 
+        : todosLosElementos.filter(e => e.parentId === carpetaActual.id);
+
+    let carpetas = elementos.filter(e => e.esCarpeta); 
+    let archivos = elementos.filter(e => !e.esCarpeta);
+    
     if (buscador) { carpetas = carpetas.filter(c => c.name.toLowerCase().includes(buscador)); archivos = archivos.filter(a => a.name.toLowerCase().includes(buscador)); }
     if (document.getElementById('contadorArchivos')) document.getElementById('contadorArchivos').textContent = `(${archivos.length} archivos)`;
 
-    if (carpetas.length === 0 && archivos.length === 0) { grilla.innerHTML = `<p style="color: #64748b;">${buscador ? 'Sin resultados.' : 'Carpeta vacía.'}</p>`; }
+    if (carpetas.length === 0 && archivos.length === 0) { grilla.innerHTML = `<p style="color: #64748b;">${buscador ? 'Sin resultados.' : 'Esta ubicación está vacía.'}</p>`; }
     else {
         carpetas.forEach(c => {
-            const btns = usuarioLogueado.rol === 'admin' ? `<div style="margin-top:10px; display:flex; justify-content:center; gap:5px;" onclick="event.stopPropagation()"><button onclick="renombrarCarpeta('${c.id}', '${c.name}')" style="background:#0284c7;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">✏️</button><button onclick="eliminarCarpeta('${c.id}', '${c.name}')" style="background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">🗑️</button></div>` : '';
-            grilla.innerHTML += `<div class="folder-card" onclick="entrarCarpeta('${c.id}', '${c.name}')"><div class="folder-icon">📁</div><h3>${c.name}</h3><p>Subcarpeta</p>${btns}</div>`;
+            const btns = usuarioLogueado.rol === 'admin' ? `<div style="margin-top:10px; display:flex; justify-content:center; gap:5px;" onclick="event.stopPropagation()"><button onclick="renombrarCarpeta('${c.id}', '${c.name}')" style="background:#0284c7;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Renombrar">✏️</button><button onclick="eliminarCarpeta('${c.id}', '${c.name}')" style="background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Eliminar">🗑️</button></div>` : '';
+            grilla.innerHTML += `<div class="folder-card" onclick="entrarCarpeta('${c.id}', '${c.name}')"><div class="folder-icon">📁</div><h3>${c.name}</h3><p>Carpeta</p>${btns}</div>`;
         });
     }
 
@@ -154,7 +160,6 @@ async function guardarObservacionServidor(id, texto) {
     try { await fetch(`/api/elementos/${id}/observacion`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ observacion: obsFinal }) }); cargarElementos(); } catch(e) { alert('Error guardando observación'); }
 }
 
-// CORRECCIÓN DEL CLIMA (Se eliminó el [object Promise])
 async function cargarClimaLaja() {
     const w = document.getElementById('widgetClimaLaja'); if(!w) return; w.style.display = 'block';
     setInterval(() => document.getElementById('horaLocal').textContent = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }), 1000);
