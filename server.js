@@ -17,14 +17,12 @@ oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- SISTEMA DE CACHÉ Y DATOS PERSISTENTES ---
 let driveCache = [];
 let usuariosAutorizados = [];
 let chatHistorial = [];
 let idArchivoUsuarios = null;
 let idArchivoChat = null;
 
-// Cargar Usuarios desde Drive
 async function cargarUsuariosDesdeDrive() {
     try {
         const res = await drive.files.list({ q: `'${FOLDER_ID}' in parents and name = 'usuarios_pehuen.json' and trashed = false`, fields: 'files(id)' });
@@ -41,7 +39,6 @@ async function cargarUsuariosDesdeDrive() {
     } catch (e) { console.error("Error usuarios:", e.message); }
 }
 
-// Cargar Chat desde Drive
 async function cargarChatDesdeDrive() {
     try {
         const res = await drive.files.list({ q: `'${FOLDER_ID}' in parents and name = 'chat_pehuen.json' and trashed = false`, fields: 'files(id)' });
@@ -69,7 +66,6 @@ async function guardarChatEnDrive() {
     await drive.files.update({ fileId: idArchivoChat, media: { mimeType: 'application/json', body: bufferStream } });
 }
 
-// Refrescar caché (AHORA INCLUYE EL TAMAÑO 'size' DEL ARCHIVO Y OBSERVACIONES)
 async function refrescarCache() {
     try {
         const response = await drive.files.list({
@@ -92,16 +88,14 @@ async function refrescarCache() {
 cargarUsuariosDesdeDrive().then(() => cargarChatDesdeDrive()).then(() => refrescarCache());
 setInterval(refrescarCache, 5 * 60 * 1000);
 
-// --- RUTAS DE CHAT (Nube) ---
 app.get('/api/chat', (req, res) => res.json(chatHistorial));
 app.post('/api/chat', async (req, res) => {
     chatHistorial.push(req.body);
-    if(chatHistorial.length > 50) chatHistorial.shift(); // Mantiene los últimos 50 mensajes para no saturar
+    if(chatHistorial.length > 200) chatHistorial.shift();
     await guardarChatEnDrive();
     res.json({ success: true });
 });
 
-// --- RUTAS DE USUARIOS Y CARPETAS (Igual que antes) ---
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   const usuario = usuariosAutorizados.find(u => u.email === email && u.password === password);
@@ -123,18 +117,22 @@ app.delete('/api/usuarios/:id', async (req, res) => {
 app.post('/api/carpetas', async (req, res) => {
   try {
     const { nombre, parentId } = req.body;
-    const check = await drive.files.list({ q: `'${parentId || FOLDER_ID}' in parents and name = '${nombre}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`, fields: 'files(id)' });
+    const carpetaPadre = parentId && parentId.trim() !== '' ? parentId : FOLDER_ID;
+    const check = await drive.files.list({ q: `'${carpetaPadre}' in parents and name = '${nombre}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`, fields: 'files(id)' });
     if (check.data.files.length > 0) return res.json({ success: true });
-    await drive.files.create({ resource: { name: nombre, mimeType: 'application/vnd.google-apps.folder', parents: [parentId || FOLDER_ID] }, fields: 'id' });
+    await drive.files.create({ resource: { name: nombre, mimeType: 'application/vnd.google-apps.folder', parents: [carpetaPadre] }, fields: 'id' });
     await refrescarCache(); res.json({ success: true });
-  } catch (error) { res.status(500).json({ success: false }); }
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 app.get('/api/elementos', (req, res) => res.json(driveCache));
 
+// SUBIDA SEGURA EN SUBCARPETAS
 app.post('/api/subir', upload.array('archivos', 20), async (req, res) => {
   try {
-    const targetFolderId = req.body.parentId || FOLDER_ID;
+    const targetFolderId = req.body.parentId && req.body.parentId.trim() !== '' ? req.body.parentId : FOLDER_ID;
+    if (!req.files || req.files.length === 0) return res.status(400).json({ success: false, error: 'Sin archivos' });
+    
     const uploadedFiles = [];
     for (const file of req.files) {
         const check = await drive.files.list({ q: `'${targetFolderId}' in parents and name = '${file.originalname}' and trashed = false`, fields: 'files(id)' });
@@ -143,8 +141,12 @@ app.post('/api/subir', upload.array('archivos', 20), async (req, res) => {
         await drive.files.create({ resource: { name: file.originalname, parents: [targetFolderId] }, media: { mimeType: file.mimetype, body: bufferStream } });
         uploadedFiles.push({ name: file.originalname, status: 'ok' });
     }
-    await refrescarCache(); res.json({ success: true, files: uploadedFiles });
-  } catch (error) { res.status(500).json({ success: false }); }
+    await refrescarCache(); 
+    res.json({ success: true, files: uploadedFiles });
+  } catch (error) { 
+    console.error("Error en subida:", error.message);
+    res.status(500).json({ success: false, error: error.message }); 
+  }
 });
 
 app.delete('/api/elementos/:id', async (req, res) => { try { await drive.files.delete({ fileId: req.params.id }); await refrescarCache(); res.json({ success: true }); } catch (e) { res.status(500).json({ success: false }); } });
@@ -158,8 +160,6 @@ app.put('/api/archivos/:id', upload.single('archivo'), async (req, res) => {
     await refrescarCache(); res.json({ success: true });
   } catch (e) { res.status(500).json({ success: false }); }
 });
-
-// --- RUTA NUEVA: GUARDAR OBSERVACIONES EN DRIVE ---
 app.put('/api/elementos/:id/observacion', async (req, res) => {
   try {
     await drive.files.update({ fileId: req.params.id, resource: { properties: { observacion: req.body.observacion || null } } });
