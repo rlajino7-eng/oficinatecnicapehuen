@@ -66,6 +66,7 @@ async function guardarChatEnDrive() {
     await drive.files.update({ fileId: idArchivoChat, media: { mimeType: 'application/json', body: bufferStream } });
 }
 
+// CACHÉ INTELIGENTE CON ETIQUETA OFICIAL DE RAÍZ
 async function refrescarCache() {
     try {
         const response = await drive.files.list({
@@ -73,15 +74,19 @@ async function refrescarCache() {
             fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime, parents, properties, size)',
             orderBy: 'createdTime desc'
         });
-        driveCache = response.data.files.map(f => ({
-            ...f,
-            esCarpeta: f.mimeType === 'application/vnd.google-apps.folder',
-            parentId: f.parents && f.parents[0] ? f.parents[0] : FOLDER_ID,
-            categoria: f.name.includes('_') ? f.name.split('_')[0].toUpperCase() : 'GENERAL',
-            estado: f.properties?.estado || 'DISPONIBLE',
-            bloqueadoPor: f.properties?.bloqueadoPor || '',
-            observacion: f.properties?.observacion || ''
-        }));
+        driveCache = response.data.files.map(f => {
+            const pId = f.parents && f.parents[0] ? f.parents[0] : FOLDER_ID;
+            return {
+                ...f,
+                esCarpeta: f.mimeType === 'application/vnd.google-apps.folder',
+                parentId: pId,
+                esRaiz: pId === FOLDER_ID, // IDENTIFICA EXACTAMENTE SI ESTÁ EN LA RAÍZ PRINCIPAL
+                categoria: f.name.includes('_') ? f.name.split('_')[0].toUpperCase() : 'GENERAL',
+                estado: f.properties?.estado || 'DISPONIBLE',
+                bloqueadoPor: f.properties?.bloqueadoPor || '',
+                observacion: f.properties?.observacion || ''
+            };
+        });
     } catch (error) { console.error('Error caché:', error.message); }
 }
 
@@ -127,7 +132,6 @@ app.post('/api/carpetas', async (req, res) => {
 
 app.get('/api/elementos', (req, res) => res.json(driveCache));
 
-// SUBIDA SEGURA EN SUBCARPETAS
 app.post('/api/subir', upload.array('archivos', 20), async (req, res) => {
   try {
     const targetFolderId = req.body.parentId && req.body.parentId.trim() !== '' ? req.body.parentId : FOLDER_ID;
@@ -144,7 +148,6 @@ app.post('/api/subir', upload.array('archivos', 20), async (req, res) => {
     await refrescarCache(); 
     res.json({ success: true, files: uploadedFiles });
   } catch (error) { 
-    console.error("Error en subida:", error.message);
     res.status(500).json({ success: false, error: error.message }); 
   }
 });
