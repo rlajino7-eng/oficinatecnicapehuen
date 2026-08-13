@@ -17,6 +17,8 @@
         .btn-volver:hover { background: #334155; }
         .btn-nueva-carpeta { background: #0284c7; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; display: inline-flex; align-items: center; gap: 5px; }
         .btn-nueva-carpeta:hover { background: #0369a1; }
+        /* Estilos base para chat y clima */
+        .flotante-widget { position: fixed; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -60,11 +62,19 @@
             <div id="vistaDirectorioContainer">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 10px;">
                     <div>
+                        <!-- BOTONES DE NAVEGACIÓN ACTUALIZADOS -->
                         <button id="btnVolverAtras" class="btn-volver" style="display:none;" onclick="subirNivelCarpeta()">⬅ Volver</button>
+                        <button id="btnHome" class="btn-volver" style="display:none; background: #0284c7; margin-left: 5px;" onclick="irAlInicio()">🏠 Inicio</button>
+                        
                         <h2 id="tituloDirectorio">📁 Directorio Principal</h2>
                         <p style="color: #64748b; margin: 5px 0 0 0;" id="subtituloDirectorio">Explora las carpetas o ingresa a una para ver su contenido.</p>
                     </div>
-                    <button class="btn-nueva-carpeta" onclick="crearCarpetaActual()">➕ Nueva Carpeta</button>
+                    
+                    <!-- ÁREA DE CONTROLES SUPERIORES (Buscador y Nueva Carpeta) -->
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="inputBuscador" placeholder="🔍 Buscar archivo, anexo, nombre..." style="padding: 8px 15px; border-radius: 6px; border: 1px solid #cbd5e1; width: 250px; font-family: 'Inter', sans-serif;">
+                        <button id="btnCrearCarpeta" class="btn-nueva-carpeta" onclick="crearCarpetaActual()">➕ Nueva Carpeta</button>
+                    </div>
                 </div>
                 
                 <!-- GRILLA COMBINADA DE SUBCARPETAS Y ARCHIVOS -->
@@ -72,14 +82,18 @@
 
                 <!-- TABLA PARA ARCHIVOS SI LOS HAY -->
                 <div id="contenedorTablaArchivos" style="margin-top: 30px; display: none;">
-                    <h3>Documentos en esta ubicación</h3>
+                    <h3>Documentos en esta ubicación <span id="contadorArchivos" style="font-size: 14px; color: #64748b; font-weight: normal; margin-left: 10px;">(0 archivos)</span></h3>
                     <section class="table-container">
                         <table class="tech-table">
                             <thead>
                                 <tr>
-                                    <th>TIPO</th>
+                                    <!-- COLUMNAS NUEVAS AÑADIDAS -->
+                                    <th style="width: 40px; text-align: center;">N°</th>
+                                    <th>CARPETA (TIPO)</th>
                                     <th>NOMBRE DEL ARCHIVO / DOCUMENTO TÉCNICO</th>
+                                    <th>PESO</th>
                                     <th>FECHA REGISTRO</th>
+                                    <th>OBSERVACIONES</th>
                                     <th>ACCIONES CORPORATIVAS</th>
                                 </tr>
                             </thead>
@@ -88,12 +102,13 @@
                     </section>
                 </div>
 
-                <!-- FORMULARIO DE SUBIDA RÁPIDA ABAJO -->
+                <!-- FORMULARIO DE SUBIDA RÁPIDA MASIVA -->
                 <div style="margin-top: 30px; background: #f1f5f9; padding: 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                    <strong>Subir archivo en esta ubicación actual:</strong>
+                    <strong>Subir archivo(s) en esta ubicación actual:</strong>
                     <form id="formSubir" style="display: flex; gap: 10px; align-items: center;">
-                        <label for="archivoInput" class="btn-select" style="margin: 0; cursor: pointer; background: white; padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 13px;">📁 Seleccionar Archivo</label>
-                        <input type="file" id="archivoInput" required style="display: none;">
+                        <label for="archivoInput" class="btn-select" style="margin: 0; cursor: pointer; background: white; padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 13px;">📁 Seleccionar Archivos</label>
+                        <!-- SE AGREGÓ EL ATRIBUTO "multiple" PARA SUBIDA MASIVA -->
+                        <input type="file" id="archivoInput" multiple required style="display: none;">
                         <span id="nombreSeleccionado" class="file-name" style="font-size: 13px; color: #64748b;">Ningún archivo...</span>
                         <button type="submit" class="btn-upload" style="background: #16a34a; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">⬆ Subir aquí</button>
                     </form>
@@ -103,6 +118,7 @@
         </main>
     </div>
 
+    <!-- MODAL DE ADMINISTRACIÓN -->
     <div id="adminModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -128,6 +144,30 @@
                     <tbody id="listaUsuarios"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- WIDGET CLIMA LAJA (Se activará por JS) -->
+    <div id="widgetClimaLaja" class="flotante-widget" style="bottom: 20px; right: 20px; background: rgba(30, 41, 59, 0.95); color: white; padding: 12px; border-left: 4px solid #0284c7; display: none;">
+        <div style="font-weight: 700; font-size: 12px; margin-bottom: 5px; color: #94a3b8;">📍 Laja, Región del Biobío</div>
+        <div id="horaLocal" style="font-size: 18px; font-weight: bold; margin-bottom: 2px;">--:--</div>
+        <div id="climaInfo" style="font-size: 13px;">☁️ Cargando clima...</div>
+    </div>
+
+    <!-- CHAT FLOTANTE CORPORATIVO (Se activará por JS) -->
+    <div id="chatCorporativo" class="flotante-widget" style="bottom: 20px; left: 20px; width: 300px; background: white; border: 1px solid #cbd5e1; display: none; flex-direction: column;">
+        <div style="background: #1e293b; color: white; padding: 10px; border-radius: 8px 8px 0 0; font-weight: bold; display: flex; justify-content: space-between; cursor: pointer;" onclick="toggleChat()">
+            <span>💬 Chat Oficina Técnica</span>
+            <span id="btnMinimizarChat">−</span>
+        </div>
+        <div id="cuerpoChat" style="height: 250px; display: flex; flex-direction: column;">
+            <div id="mensajesChat" style="flex: 1; padding: 10px; overflow-y: auto; background: #f8fafc; font-size: 13px;">
+                <div style="text-align: center; color: #94a3b8; font-size: 11px;">Historial guardado en la nube</div>
+            </div>
+            <form id="formChat" style="display: flex; border-top: 1px solid #e2e8f0; padding: 5px;">
+                <input type="text" id="inputChat" placeholder="Escribe un mensaje..." style="flex: 1; border: none; outline: none; padding: 5px; font-size: 13px;">
+                <button type="submit" style="background: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Enviar</button>
+            </form>
         </div>
     </div>
 
