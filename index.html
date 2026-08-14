@@ -58,7 +58,8 @@
 
         <main class="dashboard">
             
-            <div id="vistaDirectorioContainer">
+            <!-- EL COLCHÓN DE 180px ESTÁ AQUÍ EN EL PADDING-BOTTOM -->
+            <div id="vistaDirectorioContainer" style="padding-bottom: 180px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 10px;">
                     <div>
                         <button id="btnVolverAtras" class="btn-volver" style="display:none;" onclick="subirNivelCarpeta()">⬅ Volver</button>
@@ -76,7 +77,7 @@
                 
                 <div id="grillaDirectorio" class="folder-grid"></div>
 
-                <!-- BARRA DE SUBIDA Y CABECERA: AHORA INDEPENDIENTE Y SIEMPRE VISIBLE -->
+                <!-- BARRA DE SUBIDA Y CABECERA: INDEPENDIENTE Y SIEMPRE VISIBLE -->
                 <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: #f8fafc; padding: 12px 15px; border-radius: 6px; border: 1px solid #cbd5e1;">
                     <h3 style="margin: 0; color: #1e293b; font-size: 16px;">Documentos en esta ubicación <span id="contadorArchivos" style="font-size: 14px; color: #64748b; font-weight: normal; margin-left: 10px;">(0 archivos)</span></h3>
                     
@@ -88,7 +89,7 @@
                     </form>
                 </div>
 
-                <!-- LA TABLA NEGRA: ESTO ES LO ÚNICO QUE SE OCULTARÁ SI LA CARPETA ESTÁ VACÍA -->
+                <!-- LA TABLA NEGRA -->
                 <div id="contenedorTablaArchivos" style="display: none;">
                     <section class="table-container">
                         <table class="tech-table">
