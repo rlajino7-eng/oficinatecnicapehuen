@@ -19,6 +19,38 @@
         .btn-nueva-carpeta { background: #0284c7; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; display: inline-flex; align-items: center; gap: 5px; }
         .btn-nueva-carpeta:hover { background: #0369a1; }
         .flotante-widget { position: fixed; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border-radius: 8px; }
+        /* ESTILOS ESPECIALES PARA VISTA MÓVIL PERFECTA */
+@media (max-width: 768px) {
+    .header-tecnico {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        padding: 15px !important;
+        gap: 10px !important;
+    }
+    .logo-box {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    .header-divider {
+        display: none !important;
+    }
+    .admin-profile {
+        width: 100% !important;
+        justify-content: space-between !important;
+        margin-top: 5px !important;
+    }
+    .folder-grid {
+        grid-template-columns: 1fr !important; /* Las carpetas ocuparán todo el ancho ordenadas una debajo de otra */
+    }
+    #vistaDirectorioContainer > div:first-child {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    #inputBuscador {
+        width: 100% !important;
+    }
+}
     </style>
 </head>
 <body>
