@@ -185,15 +185,18 @@ async function cargarClimaLaja() {
 
 function toggleChat() {
     const c = document.getElementById('cuerpoChat'); 
+    const panel = document.getElementById('panelColegas');
     const b = document.getElementById('btnMinimizarChat');
     if (c.style.display === 'none') { 
         c.style.display = 'flex'; 
+        if(chatModoActual === 'privado') panel.style.display = 'flex';
         b.textContent = '−'; 
         chatAbierto = true;
-        document.getElementById('badgeNotifChat').style.display = 'none'; // Al abrir, borra la alerta
+        document.getElementById('badgeNotifChat').style.display = 'none'; 
         cargarChatNube(); 
     } else { 
         c.style.display = 'none'; 
+        panel.style.display = 'none';
         b.textContent = '+'; 
         chatAbierto = false;
     }
@@ -201,41 +204,48 @@ function toggleChat() {
 
 function cambiarPestanaChat(modo) {
     chatModoActual = modo;
-    const sel = document.getElementById('selectorPrivado');
+    const panel = document.getElementById('panelColegas');
     const btnGen = document.getElementById('btnTabGeneral');
     const btnPriv = document.getElementById('btnTabPrivado');
     
     if (modo === 'general') {
-        sel.style.display = 'none';
+        panel.style.display = 'none';
         btnGen.style.background = '#0284c7';
         btnPriv.style.background = '#475569';
         usuarioDestinoPrivado = '';
     } else {
-        sel.style.display = 'block';
+        if(chatAbierto) panel.style.display = 'flex';
         btnGen.style.background = '#475569';
         btnPriv.style.background = '#0284c7';
-        poblarSelectDestinatarios();
+        actualizarListaColegasLateral();
     }
     cargarChatNube();
 }
 
-function poblarSelectDestinatarios() {
-    const select = document.getElementById('selectDestinatario');
+function actualizarListaColegasLateral() {
+    const listaDiv = document.getElementById('listaColegasLateral');
+    if(!listaDiv) return;
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
     fetch('/api/usuarios')
         .then(res => res.json())
         .then(usuarios => {
-            select.innerHTML = '<option value="">Selecciona un colega...</option>';
+            listaDiv.innerHTML = '';
             usuarios.forEach(u => {
                 if (u.nombre !== usuarioLogueado.nombre) {
-                    select.innerHTML += `<option value="${u.nombre}">${u.nombre} (${u.rol.toUpperCase()})</option>`;
+                    const online = u.ultimoAcceso && (Date.now() - new Date(u.ultimoAcceso).getTime() < 120000);
+                    const puntoHtml = online ? '<span style="color:#22c55e; font-size:14px; margin-right:6px;" title="Conectado">●</span>' : '<span style="display:inline-block; width:10px; margin-right:6px;"></span>';
+                    const estiloSeleccionado = usuarioDestinoPrivado === u.nombre ? 'background: #e2e8f0; font-weight: bold;' : '';
+                    
+                    listaDiv.innerHTML += `<div onclick="seleccionarColegaDirecto('${u.nombre}')" style="padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; margin-bottom: 2px; ${estiloSeleccionado}" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${usuarioDestinoPrivado === u.nombre ? '#e2e8f0' : 'transparent'}'">${puntoHtml}<span style="color: #334155; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${u.nombre}</span></div>`;
                 }
             });
         });
 }
 
-function seleccionarChatPrivado() {
-    usuarioDestinoPrivado = document.getElementById('selectDestinatario').value;
+function seleccionarColegaDirecto(nombreColega) {
+    usuarioDestinoPrivado = nombreColega;
+    chatModoActual = 'privado';
+    actualizarListaColegasLateral();
     cargarChatNube();
 }
 
@@ -252,7 +262,7 @@ function initChat() {
             const destinario = chatModoActual === 'general' ? 'general' : usuarioDestinoPrivado;
             
             if (chatModoActual === 'privado' && !destinario) {
-                alert('Por favor selecciona un colega de la lista para escribirle por privado.');
+                alert('Por favor haz clic en un colega de la lista lateral para escribirle por privado.');
                 return;
             }
 
@@ -269,8 +279,18 @@ function initChat() {
             cargarChatNube();
         });
     }
+
+    // Enviar latido activo cada 30 segundos
+    setInterval(() => {
+        const u = JSON.parse(localStorage.getItem('usuarioPehuen'));
+        if(u) fetch(`/api/usuarios/latido`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ nombre: u.nombre }) }).catch(e=>{});
+    }, 30000);
+
     cargarChatNube(); 
-    setInterval(cargarChatNube, 4000);
+    setInterval(() => {
+        cargarChatNube();
+        if(chatAbierto && chatModoActual === 'privado') actualizarListaColegasLateral();
+    }, 4000);
 }
 
 async function cargarChatNube() {
@@ -279,13 +299,10 @@ async function cargarChatNube() {
         const res = await fetch('/api/chat'); 
         const historial = await res.json();
         
-        // NOTIFICACIÓN DE MENSAJES NUEVOS SI EL CHAT ESTÁ MINIMIZADO O LLEGÓ ALGO NUEVO
         if (historial.length > cantidadMensajesUltimaVez && cantidadMensajesUltimaVez > 0) {
             const ultimoMsg = historial[historial.length - 1];
             if (ultimoMsg.autor !== usuarioLogueado.nombre) {
                 document.getElementById('badgeNotifChat').style.display = 'inline-block';
-                
-                // REPRODUCIR SONIDO DE ALERTA
                 const audio = document.getElementById('audioNotificacion');
                 if (audio) {
                     audio.play().catch(e => console.log('El navegador bloqueó el audio automático', e));
@@ -296,22 +313,23 @@ async function cargarChatNube() {
 
         const c = document.getElementById('mensajesChat'); if(!c) return;
         
-        c.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:11px; margin-bottom:8px;">${chatModoActual === 'general' ? '🌐 Chat Empresa (General)' : '🔒 Privado con ' + (usuarioDestinoPrivado || '...')}</div>`;
+        c.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:11px; margin-bottom:8px;">${chatModoActual === 'general' ? '🌐 Chat Empresa (General)' : '🔒 Privado con ' + (usuarioDestinoPrivado || 'Selecciona un colega')}</div>`;
         
         historial.forEach(m => {
             const colorAutor = obtenerColorAutor(m.autor);
+            let estadoVisto = m.visto ? '<span style="color:#0284c7; font-size:10px; font-weight:bold;">✓✓</span>' : '<span style="color:#94a3b8; font-size:10px;">✓</span>';
+            
             if (chatModoActual === 'general') {
                 if (m.destinario === 'general' || !m.destinario) {
-                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:${colorAutor};">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`;
+                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:${colorAutor};">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span> <span style="float:right;">${m.autor === usuarioLogueado.nombre ? estadoVisto : ''}</span></div>`;
                 }
             } else {
                 if (usuarioDestinoPrivado && ((m.autor === usuarioLogueado.nombre && m.destinario === usuarioDestinoPrivado) || (m.autor === usuarioDestinoPrivado && m.destinario === usuarioLogueado.nombre))) {
-                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:${colorAutor};">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span></div>`;
+                    c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:${colorAutor};">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span> <span style="float:right;">${m.autor === usuarioLogueado.nombre ? estadoVisto : ''}</span></div>`;
                 }
             }
         });
         
-        // SOLO SE DESPLAZA HACIA ABAJO SI EL USUARIO TIENE EL CHAT ABIERTO
         if (chatAbierto) {
             c.scrollTop = c.scrollHeight;
         }
@@ -320,7 +338,11 @@ async function cargarChatNube() {
 
 async function cargarUsuarios() {
     const usrs = await (await fetch('/api/usuarios')).json(); const l = document.getElementById('listaUsuarios'); l.innerHTML = '';
-    usrs.forEach(u => l.innerHTML += `<tr><td>${u.nombre}</td><td>${u.email}</td><td>${u.rol.toUpperCase()}</td><td><button onclick="eliminarUser(${u.id})" style="background:red; color:white; padding:2px 5px; border:none; cursor:pointer; font-weight:bold;">X</button></td></tr>`);
+    usrs.forEach(u => {
+        const online = u.ultimoAcceso && (Date.now() - new Date(u.ultimoAcceso).getTime() < 120000);
+        const indicadorConectado = online ? ' <span style="color:#22c55e; font-weight:bold;">● En línea</span>' : '';
+        l.innerHTML += `<tr><td>${u.nombre}${indicadorConectado}</td><td>${u.email}</td><td>${u.rol.toUpperCase()}</td><td><button onclick="eliminarUser(${u.id})" style="background:red; color:white; padding:2px 5px; border:none; cursor:pointer; font-weight:bold;">X</button></td></tr>`;
+    });
 }
 async function eliminarUser(id) { if(confirm('¿Revocar acceso?')) { await fetch(`/api/usuarios/${id}`, { method: 'DELETE' }); cargarUsuarios(); } }
 function toggleAdminModal() { const m = document.getElementById('adminModal'); m.style.display = m.style.display === 'flex' ? 'none' : 'flex'; }
