@@ -3,7 +3,7 @@ let historialRuta = [{ id: '', nombre: 'Directorio Principal' }];
 let chatModoActual = 'general';
 let usuarioDestinoPrivado = '';
 let cantidadMensajesUltimaVez = 0;
-let chatAbierto = true;
+let chatAbierto = false;
 
 // GENERADOR DE COLOR AUTOMÁTICO SEGÚN EL NOMBRE
 function obtenerColorAutor(nombre) {
@@ -310,7 +310,11 @@ async function cargarChatNube() {
                 }
             }
         });
-        c.scrollTop = c.scrollHeight;
+        
+        // SOLO SE DESPLAZA HACIA ABAJO SI EL USUARIO TIENE EL CHAT ABIERTO
+        if (chatAbierto) {
+            c.scrollTop = c.scrollHeight;
+        }
     } catch(e) {}
 }
 
