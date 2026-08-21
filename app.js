@@ -1,7 +1,9 @@
 let todosLosElementos = [];
 let historialRuta = [{ id: '', nombre: 'Directorio Principal' }];
-let chatModoActual = 'general';
+let chatModoActual = 'general'; // 'general', 'privado', 'grupo'
 let usuarioDestinoPrivado = '';
+let grupoDestinoActual = 'General';
+let listaGruposEmpresa = ['General', 'Operaciones Laja', 'Mantención Mecánica'];
 let cantidadMensajesUltimaVez = 0;
 let chatAbierto = false;
 
@@ -183,13 +185,15 @@ async function cargarClimaLaja() {
     }
 }
 
+// --- SISTEMA DE CHAT TIPO WHATSAPP CORPORATIVO ---
+
 function toggleChat() {
     const c = document.getElementById('cuerpoChat'); 
     const panel = document.getElementById('panelColegas');
     const b = document.getElementById('btnMinimizarChat');
     if (c.style.display === 'none') { 
         c.style.display = 'flex'; 
-        if(chatModoActual === 'privado') panel.style.display = 'flex';
+        panel.style.display = 'flex';
         b.textContent = '−'; 
         chatAbierto = true;
         document.getElementById('badgeNotifChat').style.display = 'none'; 
@@ -203,50 +207,100 @@ function toggleChat() {
 }
 
 function cambiarPestanaChat(modo) {
-    chatModoActual = modo;
-    const panel = document.getElementById('panelColegas');
-    const btnGen = document.getElementById('btnTabGeneral');
-    const btnPriv = document.getElementById('btnTabPrivado');
+    chatModoActual = modo; // 'contactos' o 'grupos'
+    const btnContactos = document.getElementById('btnTabContactos');
+    const btnGrupos = document.getElementById('btnTabGrupos');
     
-    if (modo === 'general') {
-        panel.style.display = 'none';
-        btnGen.style.background = '#0284c7';
-        btnPriv.style.background = '#475569';
-        usuarioDestinoPrivado = '';
+    if (modo === 'contactos') {
+        if(btnContactos) { btnContactos.style.background = '#0284c7'; btnContactos.style.color = 'white'; }
+        if(btnGrupos) { btnGrupos.style.background = '#e2e8f0'; btnGrupos.style.color = '#334155'; }
+        actualizarListaContactosLateral();
     } else {
-        if(chatAbierto) panel.style.display = 'flex';
-        btnGen.style.background = '#475569';
-        btnPriv.style.background = '#0284c7';
-        actualizarListaColegasLateral();
+        if(btnGrupos) { btnGrupos.style.background = '#0284c7'; btnGrupos.style.color = 'white'; }
+        if(btnContactos) { btnContactos.style.background = '#e2e8f0'; btnContactos.style.color = '#334155'; }
+        actualizarListaGruposLateral();
     }
-    cargarChatNube();
 }
 
-function actualizarListaColegasLateral() {
+function actualizarListaContactosLateral() {
     const listaDiv = document.getElementById('listaColegasLateral');
     if(!listaDiv) return;
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+    
+    // Mostrar botón de crear grupo solo si es administrador
+    const adminHeader = document.getElementById('headerPanelChat');
+    if(adminHeader) {
+        if(usuarioLogueado && usuarioLogueado.rol === 'admin') {
+            adminHeader.innerHTML = '<span>👥 Contactos</span> <span onclick="crearNuevoGrupoAdmin()" style="cursor:pointer; font-size:14px; background:#0284c7; padding:2px 6px; border-radius:4px; color:white;" title="Crear Grupo">+ Grupo</span>';
+        } else {
+            adminHeader.innerHTML = '<span>👥 Contactos</span>';
+        }
+    }
+
     fetch('/api/usuarios')
         .then(res => res.json())
         .then(usuarios => {
-            listaDiv.innerHTML = '';
+            listaDiv.innerHTML = '<div style="font-size:10px; color:#64748b; padding:4px; font-weight:bold;">DIRECTOS</div>';
             usuarios.forEach(u => {
                 if (u.nombre !== usuarioLogueado.nombre) {
                     const online = u.ultimoAcceso && (Date.now() - new Date(u.ultimoAcceso).getTime() < 120000);
-                    const puntoHtml = online ? '<span style="color:#22c55e; font-size:14px; margin-right:6px;" title="Conectado">●</span>' : '<span style="display:inline-block; width:10px; margin-right:6px;"></span>';
-                    const estiloSeleccionado = usuarioDestinoPrivado === u.nombre ? 'background: #e2e8f0; font-weight: bold;' : '';
+                    const puntoHtml = online ? '<span style="color:#22c55e; font-size:14px; margin-right:6px;" title="En línea">●</span>' : '<span style="display:inline-block; width:10px; margin-right:6px; color:#cbd5e1;">●</span>';
+                    const estiloSeleccionado = (chatModoActual === 'privado' && usuarioDestinoPrivado === u.nombre) ? 'background: #e2e8f0; font-weight: bold;' : '';
                     
-                    listaDiv.innerHTML += `<div onclick="seleccionarColegaDirecto('${u.nombre}')" style="padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; margin-bottom: 2px; ${estiloSeleccionado}" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${usuarioDestinoPrivado === u.nombre ? '#e2e8f0' : 'transparent'}'">${puntoHtml}<span style="color: #334155; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${u.nombre}</span></div>`;
+                    listaDiv.innerHTML += `<div onclick="seleccionarChatPrivado('${u.nombre}')" style="padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; margin-bottom: 2px; ${estiloSeleccionado}" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${(chatModoActual === 'privado' && usuarioDestinoPrivado === u.nombre)? '#e2e8f0':'transparent'}'">${puntoHtml}<span style="color: #334155; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${u.nombre}</span></div>`;
                 }
             });
         });
 }
 
-function seleccionarColegaDirecto(nombreColega) {
-    usuarioDestinoPrivado = nombreColega;
+function actualizarListaGruposLateral() {
+    const listaDiv = document.getElementById('listaColegasLateral');
+    if(!listaDiv) return;
+    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+
+    const adminHeader = document.getElementById('headerPanelChat');
+    if(adminHeader) {
+        if(usuarioLogueado && usuarioLogueado.rol === 'admin') {
+            adminHeader.innerHTML = '<span>📢 Grupos</span> <span onclick="crearNuevoGrupoAdmin()" style="cursor:pointer; font-size:14px; background:#0284c7; padding:2px 6px; border-radius:4px; color:white;" title="Crear Grupo">+ Grupo</span>';
+        } else {
+            adminHeader.innerHTML = '<span>📢 Grupos</span>';
+        }
+    }
+
+    listaDiv.innerHTML = '<div style="font-size:10px; color:#64748b; padding:4px; font-weight:bold;">CANALES Y GRUPOS</div>';
+    listaGruposEmpresa.forEach(grupo => {
+        const estiloSeleccionado = (chatModoActual === 'grupo' && grupoDestinoActual === grupo) ? 'background: #e2e8f0; font-weight: bold;' : '';
+        listaDiv.innerHTML += `<div onclick="seleccionarChatGrupo('${grupo}')" style="padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; margin-bottom: 2px; ${estiloSeleccionado}" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${(chatModoActual === 'grupo' && grupoDestinoActual === grupo)? '#e2e8f0':'transparent'}'"><span style="margin-right:6px; font-size:13px;">💬</span><span style="color: #334155; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${grupo}</span></div>`;
+    });
+}
+
+function seleccionarChatPrivado(nombreColega) {
     chatModoActual = 'privado';
-    actualizarListaColegasLateral();
+    usuarioDestinoPrivado = nombreColega;
+    grupoDestinoActual = '';
+    actualizarListaContactosLateral();
     cargarChatNube();
+}
+
+function seleccionarChatGrupo(nombreGrupo) {
+    chatModoActual = 'grupo';
+    grupoDestinoActual = nombreGrupo;
+    usuarioDestinoPrivado = '';
+    actualizarListaGruposLateral();
+    cargarChatNube();
+}
+
+function crearNuevoGrupoAdmin() {
+    const nombre = prompt('Ingresa el nombre del nuevo grupo de trabajo:');
+    if (!nombre || !nombre.trim()) return;
+    if (!listaGruposEmpresa.includes(nombre.trim())) {
+        listaGruposEmpresa.push(nombre.trim());
+        alert(`¡Grupo "${nombre.trim()}" creado con éxito!`);
+        cambiarPestanaChat('grupos');
+        seleccionarChatGrupo(nombre.trim());
+    } else {
+        alert('Este grupo ya existe.');
+    }
 }
 
 function initChat() {
@@ -259,18 +313,20 @@ function initChat() {
             if(!i.value.trim()) return;
 
             const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
-            const destinario = chatModoActual === 'general' ? 'general' : usuarioDestinoPrivado;
-            
-            if (chatModoActual === 'privado' && !destinario) {
-                alert('Por favor haz clic en un colega de la lista lateral para escribirle por privado.');
-                return;
+            let destinario = 'general';
+            if (chatModoActual === 'privado') {
+                if (!usuarioDestinoPrivado) { alert('Selecciona un colega de la lista para escribirle.'); return; }
+                destinario = usuarioDestinoPrivado;
+            } else if (chatModoActual === 'grupo') {
+                destinario = 'grupo_' + grupoDestinoActual;
             }
 
             const msg = { 
                 autor: usuarioLogueado.nombre, 
                 destinario: destinario, 
                 texto: i.value, 
-                hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) 
+                hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+                visto: false 
             };
 
             i.value = 'Enviando...'; i.disabled = true;
@@ -280,16 +336,25 @@ function initChat() {
         });
     }
 
-    // Enviar latido activo cada 30 segundos
-    setInterval(() => {
+    // Registrar sesión activa (latido) cada 30 segundos
+    const registrarSesionActiva = () => {
         const u = JSON.parse(localStorage.getItem('usuarioPehuen'));
-        if(u) fetch(`/api/usuarios/latido`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ nombre: u.nombre }) }).catch(e=>{});
-    }, 30000);
+        if(u) {
+            fetch(`/api/usuarios/latido`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ nombre: u.nombre }) }).catch(e=>{});
+        }
+    };
+    registrarSesionActiva();
+    setInterval(registrarSesionActiva, 30000);
 
+    // Iniciar en modo contactos por defecto
+    cambiarPestanaChat('contactos');
     cargarChatNube(); 
     setInterval(() => {
         cargarChatNube();
-        if(chatAbierto && chatModoActual === 'privado') actualizarListaColegasLateral();
+        if(chatAbierto) {
+            if(chatModoActual === 'contactos') actualizarListaContactosLateral();
+            else if(chatModoActual === 'grupos') actualizarListaGruposLateral();
+        }
     }, 4000);
 }
 
@@ -305,7 +370,7 @@ async function cargarChatNube() {
                 document.getElementById('badgeNotifChat').style.display = 'inline-block';
                 const audio = document.getElementById('audioNotificacion');
                 if (audio) {
-                    audio.play().catch(e => console.log('El navegador bloqueó el audio automático', e));
+                    audio.play().catch(e => console.log('Audio bloqueado por navegador', e));
                 }
             }
         }
@@ -313,18 +378,24 @@ async function cargarChatNube() {
 
         const c = document.getElementById('mensajesChat'); if(!c) return;
         
-        c.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:11px; margin-bottom:8px;">${chatModoActual === 'general' ? '🌐 Chat Empresa (General)' : '🔒 Privado con ' + (usuarioDestinoPrivado || 'Selecciona un colega')}</div>`;
+        let tituloBarraChat = '🌐 Chat General';
+        if (chatModoActual === 'privado') tituloBarraChat = '🔒 Privado: ' + (usuarioDestinoPrivado || 'Selecciona contacto');
+        else if (chatModoActual === 'grupo') tituloBarraChat = '📢 Grupo: ' + grupoDestinoActual;
+
+        c.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:11px; margin-bottom:8px; font-weight:bold;">${tituloBarraChat}</div>`;
         
         historial.forEach(m => {
             const colorAutor = obtenerColorAutor(m.autor);
-            let estadoVisto = m.visto ? '<span style="color:#0284c7; font-size:10px; font-weight:bold;">✓✓</span>' : '<span style="color:#94a3b8; font-size:10px;">✓</span>';
+            // Tics estilo WhatsApp: ✓ (enviado gris) y ✓✓ (visto en color corporativo #0284c7)
+            let estadoVisto = m.visto ? '<span style="color:#0284c7; font-size:11px; font-weight:bold;" title="Visto">✓✓</span>' : '<span style="color:#94a3b8; font-size:11px;" title="Enviado">✓</span>';
             
-            if (chatModoActual === 'general') {
-                if (m.destinario === 'general' || !m.destinario) {
+            if (chatModoActual === 'privado') {
+                if (usuarioDestinoPrivado && ((m.autor === usuarioLogueado.nombre && m.destinario === usuarioDestinoPrivado) || (m.autor === usuarioDestinoPrivado && m.destinario === usuarioLogueado.nombre))) {
                     c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:${colorAutor};">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span> <span style="float:right;">${m.autor === usuarioLogueado.nombre ? estadoVisto : ''}</span></div>`;
                 }
-            } else {
-                if (usuarioDestinoPrivado && ((m.autor === usuarioLogueado.nombre && m.destinario === usuarioDestinoPrivado) || (m.autor === usuarioDestinoPrivado && m.destinario === usuarioLogueado.nombre))) {
+            } else if (chatModoActual === 'grupo') {
+                const objetivoGrupo = 'grupo_' + grupoDestinoActual;
+                if (m.destinario === objetivoGrupo || (grupoDestinoActual === 'General' && (m.destinario === 'general' || !m.destinario))) {
                     c.innerHTML += `<div style="margin-bottom:8px; line-height:1.2;"><span style="font-weight:bold; color:${colorAutor};">${m.autor}</span> <span style="font-size:10px; color:#94a3b8;">(${m.hora})</span><br><span style="color:#334155;">${m.texto}</span> <span style="float:right;">${m.autor === usuarioLogueado.nombre ? estadoVisto : ''}</span></div>`;
                 }
             }
