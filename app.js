@@ -284,6 +284,12 @@ async function cargarChatNube() {
             const ultimoMsg = historial[historial.length - 1];
             if (ultimoMsg.autor !== usuarioLogueado.nombre) {
                 document.getElementById('badgeNotifChat').style.display = 'inline-block';
+                
+                // REPRODUCIR SONIDO DE ALERTA
+                const audio = document.getElementById('audioNotificacion');
+                if (audio) {
+                    audio.play().catch(e => console.log('El navegador bloqueó el audio automático', e));
+                }
             }
         }
         cantidadMensajesUltimaVez = historial.length;
