@@ -96,7 +96,9 @@ setInterval(refrescarCache, 5 * 60 * 1000);
 
 app.get('/api/chat', (req, res) => res.json(chatHistorial));
 app.post('/api/chat', async (req, res) => {
-    chatHistorial.push(req.body);
+    // Al recibir un mensaje, marcamos como visto si pertenece al chat abierto actual o general
+    const nuevoMsg = { ...req.body, visto: true };
+    chatHistorial.push(nuevoMsg);
     if(chatHistorial.length > 200) chatHistorial.shift();
     await guardarChatEnDrive();
     res.json({ success: true });
@@ -105,8 +107,14 @@ app.post('/api/chat', async (req, res) => {
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   const usuario = usuariosAutorizados.find(u => u.email === email && u.password === password);
-  if (usuario) res.json({ success: true, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
-  else res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
+  if (usuario) {
+      // Registramos la sesión activa al hacer login de forma exitosa
+      usuario.ultimoAcceso = new Date().toISOString();
+      guardarUsuariosEnDrive().catch(e => {});
+      res.json({ success: true, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
+  } else {
+      res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
+  }
 });
 app.get('/api/usuarios', (req, res) => res.json(usuariosAutorizados));
 app.post('/api/usuarios', async (req, res) => {
@@ -118,6 +126,17 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   usuariosAutorizados = usuariosAutorizados.filter(u => u.id != req.params.id);
   await guardarUsuariosEnDrive();
   res.json({ success: true });
+});
+
+// NUEVO: Latido para mantener actualizado el estado "en línea" al navegar
+app.post('/api/usuarios/latido', async (req, res) => {
+    const { nombre } = req.body;
+    const usr = usuariosAutorizados.find(u => u.nombre === nombre);
+    if (usr) {
+        usr.ultimoAcceso = new Date().toISOString();
+        await guardarUsuariosEnDrive();
+    }
+    res.json({ success: true });
 });
 
 app.post('/api/carpetas', async (req, res) => {
@@ -148,7 +167,6 @@ app.post('/api/subir', upload.array('archivos', 20), async (req, res) => {
         uploadedFiles.push({ name: file.originalname, status: 'ok' });
     }
     
-    // CAMBIO CLAVE: Refresca en segundo plano de forma segura sin bloquear la respuesta al navegador
     try { await refrescarCache(); } catch(e) { console.error("Aviso caché subida:", e.message); }
     
     res.json({ success: true, files: uploadedFiles });
