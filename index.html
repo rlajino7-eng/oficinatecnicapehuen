@@ -199,10 +199,12 @@
             <div style="display: flex; gap: 5px; align-items: center;">
                 <button onclick="cambiarPestanaChat('general')" id="btnTabGeneral" style="background: #0284c7; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 11px; cursor: pointer; font-weight: bold;">Empresa</button>
                 <button onclick="cambiarPestanaChat('privado')" id="btnTabPrivado" style="background: #475569; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 11px; cursor: pointer; font-weight: bold;">Directos</button>
-                <span id="btnMinimizarChat" onclick="toggleChat()" style="cursor: pointer; margin-left: 5px; font-size: 16px;">−</span>
+                <!-- CAMBIADO A '+' PARA QUE INICIE CERRADO -->
+                <span id="btnMinimizarChat" onclick="toggleChat()" style="cursor: pointer; margin-left: 5px; font-size: 16px;">+</span>
             </div>
         </div>
-        <div id="cuerpoChat" style="height: 250px; display: flex; flex-direction: column;">
+        <!-- CAMBIADO A 'display: none' PARA QUE EL CUADRO INICIE OCULTO -->
+        <div id="cuerpoChat" style="height: 250px; display: none; flex-direction: column;">
             <div id="selectorPrivado" style="display: none; padding: 6px; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; font-size: 12px;">
                 <select id="selectDestinatario" onchange="seleccionarChatPrivado()" style="width: 100%; padding: 3px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 12px;">
                     <option value="">Selecciona un colega...</option>
