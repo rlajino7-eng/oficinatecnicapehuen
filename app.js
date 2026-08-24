@@ -346,3 +346,9 @@ async function cargarUsuarios() {
 }
 async function eliminarUser(id) { if(confirm('¿Revocar acceso?')) { await fetch(`/api/usuarios/${id}`, { method: 'DELETE' }); cargarUsuarios(); } }
 function toggleAdminModal() { const m = document.getElementById('adminModal'); m.style.display = m.style.display === 'flex' ? 'none' : 'flex'; }
+
+// --- FUNCIÓN DE CAMBIO DE VISTA POR USUARIO ---
+function cambiarVistaUsuario(tipo) {
+    localStorage.setItem('vistaPreferidaPehuen', tipo);
+    renderizarDirectorioActual();
+}
