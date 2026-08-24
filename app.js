@@ -73,12 +73,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (document.getElementById('inputBuscador')) document.getElementById('inputBuscador').addEventListener('input', renderizarDirectorioActual);
     
-    // AMPLIACIÓN DE CARGOS EN EL SELECTOR DE ROLES DEL FORMULARIO
+    // AMPLIACIÓN DE CARGOS EN EL SELECTOR DE ROLES DEL FORMULARIO (INCLUYENDO PREVENCIÓN)
     const selectRol = document.getElementById('rolUser');
     if (selectRol && selectRol.options.length <= 2) {
         selectRol.innerHTML = `
             <option value="admin">Administrador</option>
             <option value="ingeniero">Ingeniero</option>
+            <option value="prevencion">Prevención</option>
             <option value="secretario/a">Secretario/a</option>
             <option value="gerencia">Gerencia</option>
             <option value="compras">Compras</option>
@@ -521,7 +522,7 @@ async function cargarChatNube() {
     } catch(e) {}
 }
 
-// GESTIÓN DE USUARIOS CON SCROLL, CARGOS AMPLIADOS Y BOTÓN DE EDICIÓN
+// GESTIÓN DE USUARIOS CON SCROLL, CARGOS Y BOTÓN DE EDICIÓN
 async function cargarUsuarios() {
     const usrs = await (await fetch('/api/usuarios')).json(); 
     const l = document.getElementById('listaUsuarios'); 
@@ -550,20 +551,35 @@ async function cargarUsuarios() {
     });
 }
 
-// FUNCIÓN PARA EDITAR USUARIOS DESDE EL PANEL DE ADMINISTRACIÓN
+// FUNCIÓN PARA EDITAR USUARIOS CON MENÚ DE SELECCIÓN DE ROL
 async function editarUser(id, nombreActual, emailActual, rolActual) {
     const nuevoNombre = prompt('Editar Nombre:', nombreActual);
     if (nuevoNombre === null) return;
     const nuevoEmail = prompt('Editar Correo:', emailActual);
     if (nuevoEmail === null) return;
-    const nuevoRol = prompt('Editar Rol (admin, ingeniero, secretario/a, gerencia, compras, planificacion, control calidad, general):', rolActual);
-    if (nuevoRol === null) return;
+
+    const rolesDisponibles = ['admin', 'ingeniero', 'prevencion', 'secretario/a', 'gerencia', 'compras', 'planificacion', 'control calidad', 'general'];
+    const rolPromptTexto = `Selecciona el número del nuevo rol:\n\n` + rolesDisponibles.map((r, i) => `${i + 1}. ${r}`).join('\n') + `\n\n(Rol actual: ${rolActual})`;
+    
+    const seleccionRol = prompt(rolPromptTexto);
+    if (seleccionRol === null) return;
+
+    let nuevoRol = rolActual;
+    const indexRol = parseInt(seleccionRol) - 1;
+    if (!isNaN(indexRol) && rolesDisponibles[indexRol]) {
+        nuevoRol = rolesDisponibles[indexRol];
+    } else if (rolesDisponibles.includes(seleccionRol.trim().toLowerCase())) {
+        nuevoRol = seleccionRol.trim().toLowerCase();
+    } else {
+        alert('Selección de rol no válida. Se mantendrá el rol anterior.');
+        return;
+    }
 
     try {
         const res = await fetch(`/api/usuarios/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre: nuevoNombre.trim(), email: nuevoEmail.trim(), rol: nuevoRol.trim().toLowerCase() })
+            body: JSON.stringify({ nombre: nuevoNombre.trim(), email: nuevoEmail.trim(), rol: nuevoRol })
         });
         const data = await res.json();
         if (data.success || res.ok) {
