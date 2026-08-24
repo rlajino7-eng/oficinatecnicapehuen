@@ -95,11 +95,14 @@ async function cargarElementos() { const res = await fetch('/api/elementos'); to
 function renderizarDirectorioActual() {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
     const carpetaActual = historialRuta[historialRuta.length - 1];
-    const buscador = document.getElementById('inputBuscador') ? document.getElementById('inputBuscador').value.toLowerCase().trim() : '';
+    document.getElementById('tituloDirectorio').textContent = `📁 ${carpetaActual.nombre}`;
+    
+    const navDisp = historialRuta.length > 1 ? 'inline-block' : 'none';
+    document.getElementById('btnVolverAtras').style.display = navDisp; document.getElementById('btnHome').style.display = navDisp;
 
-    const grilla = document.getElementById('grillaDirectorio'); 
-    const lista = document.getElementById('listaArchivosCarpeta');
+    const grilla = document.getElementById('grillaDirectorio'); const lista = document.getElementById('listaArchivosCarpeta');
     grilla.innerHTML = ''; lista.innerHTML = '';
+    const buscador = document.getElementById('inputBuscador') ? document.getElementById('inputBuscador').value.toLowerCase() : '';
 
     // LEER PREFERENCIA DE VISTA DEL USUARIO
     const vistaPreferida = localStorage.getItem('vistaPreferidaPehuen') || 'cuadricula';
@@ -113,64 +116,6 @@ function renderizarDirectorioActual() {
         grilla.style.gap = '20px';
     }
 
-    // SI HAY TEXTO EN EL BUSCADOR, HACEMOS BÚSQUEDA GLOBAL EN TODO EL REPOSITORIO
-    if (buscador) {
-        document.getElementById('tituloDirectorio').textContent = `🔍 Resultados de búsqueda: "${buscador}"`;
-        document.getElementById('btnVolverAtras').style.display = 'none';
-        document.getElementById('btnHome').style.display = 'inline-block';
-
-        let carpetasEncontradas = todosLosElementos.filter(e => e.esCarpeta && e.name.toLowerCase().includes(buscador));
-        let archivosEncontrados = todosLosElementos.filter(e => !e.esCarpeta && (e.name.toLowerCase().includes(buscador) || (e.bloqueadoPor && e.bloqueadoPor.toLowerCase().includes(buscador)) || (e.observacion && e.observacion.toLowerCase().includes(buscador))));
-
-        if (document.getElementById('contadorArchivos')) document.getElementById('contadorArchivos').textContent = `(${archivosEncontrados.length} archivos encontrados)`;
-
-        if (carpetasEncontradas.length === 0 && archivosEncontrados.length === 0) {
-            grilla.innerHTML = `<p style="color: #64748b;">No se encontraron coincidencias globales para "${buscador}".</p>`;
-            document.getElementById('contenedorTablaArchivos').style.display = 'none';
-            return;
-        }
-
-        carpetasEncontradas.forEach(c => {
-            const btns = usuarioLogueado.rol === 'admin' ? `<div style="display:flex; justify-content:flex-end; gap:5px;" onclick="event.stopPropagation()"><button onclick="renombrarCarpeta('${c.id}', '${c.name}')" style="background:#0284c7;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Renombrar">✏️</button><button onclick="eliminarCarpeta('${c.id}', '${c.name}')" style="background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Eliminar">🗑️</button></div>` : '';
-            if (vistaPreferida === 'lista') {
-                grilla.innerHTML += `<div onclick="entrarCarpeta('${c.parentId}', 'Carpeta')" style="background:white; border:1px solid #cbd5e1; border-radius:6px; padding:10px 15px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onmouseover="this.style.borderColor='#0284c7'" onmouseout="this.style.borderColor='#cbd5e1'"><div style="display:flex; align-items:center; gap:10px;"><span style="font-size:24px;">📁</span><div><h3 style="margin:0; color:#1e293b; font-size:15px;">${c.name}</h3><p style="color:#64748b; font-size:12px; margin:0;">Carpeta Global</p></div></div><div>${btns}</div></div>`;
-            } else {
-                grilla.innerHTML += `<div class="folder-card" onclick="entrarCarpeta('${c.parentId}', 'Carpeta')"><div class="folder-icon">📁</div><h3>${c.name}</h3><p>Carpeta Global</p>${btns ? `<div style="margin-top:10px; display:flex; justify-content:center; gap:5px;" onclick="event.stopPropagation()">${btns}</div>` : ''}</div>`;
-            }
-        });
-
-        if (archivosEncontrados.length > 0) {
-            document.getElementById('contenedorTablaArchivos').style.display = 'block';
-            archivosEncontrados.forEach((a, index) => {
-                const enUso = a.estado === 'EN_USO';
-                let etiqueta = enUso ? `<span style="background:#f59e0b; color:white; padding:2px 6px; border-radius:4px; font-size:11px;">🔒 En uso por ${a.bloqueadoPor}</span>` : '';
-                let botones = enUso ? 
-                    (((a.bloqueadoPor === usuarioLogueado.nombre) || usuarioLogueado.rol === 'admin') ? `<button onclick="reemplazarArchivo('${a.id}')" style="background:#0284c7;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer;margin-right:5px;font-size:12px;">⬆ Modificado</button>` : '') +
-                    (usuarioLogueado.rol === 'admin' ? `<button onclick="desbloquearArchivo('${a.id}')" style="background:#475569;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:12px;">Desbloquear</button>` : '')
-                    : `<button onclick="bloquearArchivo('${a.id}', '${a.webContentLink}')" style="background:#eab308;color:black;border:none;padding:6px;border-radius:4px;cursor:pointer;margin-right:5px;font-size:12px;font-weight:bold;">Bloquear</button><button onclick="eliminarArchivo('${a.id}')" style="background:#dc2626;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:12px;">Eliminar</button>`;
-
-                let pesoFormat = '-- KB';
-                if (a.size) {
-                    const bytes = parseInt(a.size);
-                    pesoFormat = bytes < 1048576 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / 1048576).toFixed(1) + ' MB';
-                }
-
-                const obsValue = a.observacion || '';
-                const inputObs = `<input type="text" value="${obsValue}" placeholder="Añadir nota..." onchange="guardarObservacionServidor('${a.id}', this.value)" style="width: 140px; padding: 4px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;">`;
-
-                lista.innerHTML += `<tr><td style="text-align:center;font-weight:bold;color:#64748b;">${index + 1}</td><td><strong style="color:#475569;">GLOBAL</strong></td><td><a href="${a.webViewLink}" target="_blank" style="color:#004080;font-weight:500;text-decoration:none;">${a.name}</a><br>${etiqueta}</td><td style="color:#64748b;font-size:12px;white-space:nowrap;">${pesoFormat}</td><td>${a.createdTime ? new Date(a.createdTime).toLocaleDateString() : 'Reciente'}</td><td>${inputObs}</td><td>${botones}</td></tr>`;
-            });
-        } else {
-            document.getElementById('contenedorTablaArchivos').style.display = 'none';
-        }
-        return;
-    }
-
-    // COMPORTAMIENTO NORMAL POR CARPETA SI EL BUSCADOR ESTÁ VACÍO
-    document.getElementById('tituloDirectorio').textContent = `📁 ${carpetaActual.nombre}`;
-    const navDisp = historialRuta.length > 1 ? 'inline-block' : 'none';
-    document.getElementById('btnVolverAtras').style.display = navDisp; document.getElementById('btnHome').style.display = navDisp;
-
     let elementos = carpetaActual.id === '' 
         ? todosLosElementos.filter(e => e.esRaiz) 
         : todosLosElementos.filter(e => e.parentId === carpetaActual.id);
@@ -178,9 +123,10 @@ function renderizarDirectorioActual() {
     let carpetas = elementos.filter(e => e.esCarpeta); 
     let archivos = elementos.filter(e => !e.esCarpeta);
     
+    if (buscador) { carpetas = carpetas.filter(c => c.name.toLowerCase().includes(buscador)); archivos = archivos.filter(a => a.name.toLowerCase().includes(buscador)); }
     if (document.getElementById('contadorArchivos')) document.getElementById('contadorArchivos').textContent = `(${archivos.length} archivos)`;
 
-    if (carpetas.length === 0 && archivos.length === 0) { grilla.innerHTML = `<p style="color: #64748b;">Esta ubicación está vacía.</p>`; }
+    if (carpetas.length === 0 && archivos.length === 0) { grilla.innerHTML = `<p style="color: #64748b;">${buscador ? 'Sin resultados.' : 'Esta ubicación está vacía.'}</p>`; }
     else {
         carpetas.forEach(c => {
             const btns = usuarioLogueado.rol === 'admin' ? `<div style="display:flex; justify-content:flex-end; gap:5px;" onclick="event.stopPropagation()"><button onclick="renombrarCarpeta('${c.id}', '${c.name}')" style="background:#0284c7;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Renombrar">✏️</button><button onclick="eliminarCarpeta('${c.id}', '${c.name}')" style="background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Eliminar">🗑️</button></div>` : '';
@@ -258,12 +204,18 @@ function toggleChat() {
     const c = document.getElementById('cuerpoChat'); 
     const panel = document.getElementById('panelColegas');
     const b = document.getElementById('btnMinimizarChat');
+    const badge = document.getElementById('badgeNotifChat');
+
     if (c.style.display === 'none') { 
         c.style.display = 'flex'; 
         if(chatModoActual === 'privado') panel.style.display = 'flex';
         b.textContent = '−'; 
         chatAbierto = true;
-        document.getElementById('badgeNotifChat').style.display = 'none'; 
+        
+        if (badge) {
+            badge.style.display = 'none'; 
+            badge.textContent = '¡Nuevo!';
+        }
         cargarChatNube(); 
     } else { 
         c.style.display = 'none'; 
@@ -322,6 +274,19 @@ function seleccionarColegaDirecto(nombreColega) {
 
 function initChat() {
     const w = document.getElementById('chatCorporativo'); if(w) w.style.display = 'flex';
+    
+    // HACER TODA LA BARRA DEL CHAT CLICKEABLE PARA ABRIR O CERRAR
+    const tituloBarra = document.getElementById('tituloChatBarra');
+    if (tituloBarra) {
+        const headerBar = tituloBarra.parentElement.parentElement;
+        headerBar.style.cursor = 'pointer';
+        headerBar.onclick = (e) => {
+            if (e.target.tagName !== 'BUTTON' && e.target.id !== 'btnMinimizarChat') {
+                toggleChat();
+            }
+        };
+    }
+
     const f = document.getElementById('formChat');
     if(f) {
         f.addEventListener('submit', async (e) => {
@@ -373,10 +338,24 @@ async function cargarChatNube() {
         if (historial.length > cantidadMensajesUltimaVez && cantidadMensajesUltimaVez > 0) {
             const ultimoMsg = historial[historial.length - 1];
             if (ultimoMsg.autor !== usuarioLogueado.nombre) {
-                document.getElementById('badgeNotifChat').style.display = 'inline-block';
-                const audio = document.getElementById('audioNotificacion');
-                if (audio) {
-                    audio.play().catch(e => console.log('El navegador bloqueó el audio automático', e));
+                // VERIFICAR SI EL MENSAJE ES PÚBLICO (GENERAL) O PRIVADO PARA MÍ
+                let esParaMi = false;
+                if (!ultimoMsg.destinario || ultimoMsg.destinario === 'general') {
+                    esParaMi = true; // Grupo general: suena para todos
+                } else if (ultimoMsg.destinario === usuarioLogueado.nombre) {
+                    esParaMi = true; // Privado: suena solo para mí
+                }
+
+                if (esParaMi) {
+                    const badge = document.getElementById('badgeNotifChat');
+                    if (badge) {
+                        badge.style.display = 'inline-block';
+                        badge.textContent = `¡De ${ultimoMsg.autor}!`; // Muestra quién envió el mensaje
+                    }
+                    const audio = document.getElementById('audioNotificacion');
+                    if (audio) {
+                        audio.play().catch(e => console.log('El navegador bloqueó el audio automático', e));
+                    }
                 }
             }
         }
