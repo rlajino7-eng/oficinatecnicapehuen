@@ -104,6 +104,18 @@ function renderizarDirectorioActual() {
     grilla.innerHTML = ''; lista.innerHTML = '';
     const buscador = document.getElementById('inputBuscador') ? document.getElementById('inputBuscador').value.toLowerCase() : '';
 
+    // LEER PREFERENCIA DE VISTA DEL USUARIO
+    const vistaPreferida = localStorage.getItem('vistaPreferidaPehuen') || 'cuadricula';
+    if (vistaPreferida === 'lista') {
+        grilla.style.display = 'flex';
+        grilla.style.flexDirection = 'column';
+        grilla.style.gap = '8px';
+    } else {
+        grilla.style.display = 'grid';
+        grilla.style.gridTemplateColumns = 'repeat(auto-fill, minmax(220px, 1fr))';
+        grilla.style.gap = '20px';
+    }
+
     let elementos = carpetaActual.id === '' 
         ? todosLosElementos.filter(e => e.esRaiz) 
         : todosLosElementos.filter(e => e.parentId === carpetaActual.id);
@@ -117,8 +129,13 @@ function renderizarDirectorioActual() {
     if (carpetas.length === 0 && archivos.length === 0) { grilla.innerHTML = `<p style="color: #64748b;">${buscador ? 'Sin resultados.' : 'Esta ubicación está vacía.'}</p>`; }
     else {
         carpetas.forEach(c => {
-            const btns = usuarioLogueado.rol === 'admin' ? `<div style="margin-top:10px; display:flex; justify-content:center; gap:5px;" onclick="event.stopPropagation()"><button onclick="renombrarCarpeta('${c.id}', '${c.name}')" style="background:#0284c7;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Renombrar">✏️</button><button onclick="eliminarCarpeta('${c.id}', '${c.name}')" style="background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Eliminar">🗑️</button></div>` : '';
-            grilla.innerHTML += `<div class="folder-card" onclick="entrarCarpeta('${c.id}', '${c.name}')"><div class="folder-icon">📁</div><h3>${c.name}</h3><p>Carpeta</p>${btns}</div>`;
+            const btns = usuarioLogueado.rol === 'admin' ? `<div style="display:flex; justify-content:flex-end; gap:5px;" onclick="event.stopPropagation()"><button onclick="renombrarCarpeta('${c.id}', '${c.name}')" style="background:#0284c7;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Renombrar">✏️</button><button onclick="eliminarCarpeta('${c.id}', '${c.name}')" style="background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" title="Eliminar">🗑️</button></div>` : '';
+            
+            if (vistaPreferida === 'lista') {
+                grilla.innerHTML += `<div onclick="entrarCarpeta('${c.id}', '${c.name}')" style="background:white; border:1px solid #cbd5e1; border-radius:6px; padding:10px 15px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.05);" onmouseover="this.style.borderColor='#0284c7'" onmouseout="this.style.borderColor='#cbd5e1'"><div style="display:flex; align-items:center; gap:10px;"><span style="font-size:24px;">📁</span><div><h3 style="margin:0; color:#1e293b; font-size:15px;">${c.name}</h3><p style="color:#64748b; font-size:12px; margin:0;">Carpeta</p></div></div><div>${btns}</div></div>`;
+            } else {
+                grilla.innerHTML += `<div class="folder-card" onclick="entrarCarpeta('${c.id}', '${c.name}')"><div class="folder-icon">📁</div><h3>${c.name}</h3><p>Carpeta</p>${btns ? `<div style="margin-top:10px; display:flex; justify-content:center; gap:5px;" onclick="event.stopPropagation()">${btns}</div>` : ''}</div>`;
+            }
         });
     }
 
@@ -347,7 +364,7 @@ async function cargarUsuarios() {
 async function eliminarUser(id) { if(confirm('¿Revocar acceso?')) { await fetch(`/api/usuarios/${id}`, { method: 'DELETE' }); cargarUsuarios(); } }
 function toggleAdminModal() { const m = document.getElementById('adminModal'); m.style.display = m.style.display === 'flex' ? 'none' : 'flex'; }
 
-// --- FUNCIÓN DE CAMBIO DE VISTA POR USUARIO ---
+// --- CAMBIO DE VISTA (CUADRÍCULA O LISTA) ---
 function cambiarVistaUsuario(tipo) {
     localStorage.setItem('vistaPreferidaPehuen', tipo);
     renderizarDirectorioActual();
