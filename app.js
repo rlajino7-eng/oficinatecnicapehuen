@@ -178,21 +178,16 @@ async function crearCarpetaActual() {
 async function renombrarCarpeta(id, actual) { const nuevo = prompt('Nuevo nombre:', actual); if (nuevo && nuevo.trim() !== actual) { await fetch(`/api/elementos/${id}/renombrar`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nuevoNombre: nuevo.trim() }) }); cargarElementos(); } }
 async function eliminarCarpeta(id, n) { if (confirm(`¿Eliminar "${n}"? Debe estar vacía.`)) { await fetch(`/api/elementos/${id}`, { method: 'DELETE' }); cargarElementos(); } }
 
-// FUNCIÓN BLOQUEAR ARCHIVO ACTUALIZADA CON AVISO DETALLADO AL CHAT GENERAL
+// FUNCIÓN BLOQUEAR ARCHIVO CON AVISO AL CHAT GENERAL
 async function bloquearArchivo(id, l) { 
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
-    
-    // Buscamos el nombre del archivo
     const archivoObj = todosLosElementos.find(e => e.id === id);
     const nombreArchivo = archivoObj ? archivoObj.name : 'un archivo';
 
-    // Buscamos el nombre de la carpeta donde se encuentra
     let nombreCarpeta = 'Directorio Principal';
     if (archivoObj && archivoObj.parentId) {
         const carpetaObj = todosLosElementos.find(e => e.id === archivoObj.parentId);
-        if (carpetaObj) {
-            nombreCarpeta = carpetaObj.name;
-        }
+        if (carpetaObj) nombreCarpeta = carpetaObj.name;
     }
 
     try {
@@ -202,7 +197,6 @@ async function bloquearArchivo(id, l) {
             body: JSON.stringify({ usuario: usuarioLogueado.nombre }) 
         });
 
-        // Mensaje automático para el chat general
         const textoAviso = `🔒 ${usuarioLogueado.nombre} está usando el archivo "${nombreArchivo}" (ubicado en la carpeta: ${nombreCarpeta}).`;
         const mensajeAviso = {
             autor: usuarioLogueado.nombre,
@@ -216,7 +210,6 @@ async function bloquearArchivo(id, l) {
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(mensajeAviso) 
         });
-
     } catch (err) {
         console.error('Error al bloquear o enviar aviso al chat', err);
     }
@@ -225,9 +218,90 @@ async function bloquearArchivo(id, l) {
     cargarElementos(); 
 }
 
-async function desbloquearArchivo(id) { if(confirm('¿Forzar desbloqueo?')) { await fetch(`/api/archivos/${id}/desbloquear`, { method: 'POST' }); cargarElementos(); } }
+// FUNCIÓN DESBLOQUEAR ARCHIVO CON AVISO AL CHAT GENERAL
+async function desbloquearArchivo(id) { 
+    if(confirm('¿Forzar desbloqueo?')) {
+        const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+        const archivoObj = todosLosElementos.find(e => e.id === id);
+        const nombreArchivo = archivoObj ? archivoObj.name : 'un archivo';
+
+        let nombreCarpeta = 'Directorio Principal';
+        if (archivoObj && archivoObj.parentId) {
+            const carpetaObj = todosLosElementos.find(e => e.id === archivoObj.parentId);
+            if (carpetaObj) nombreCarpeta = carpetaObj.name;
+        }
+
+        try {
+            await fetch(`/api/archivos/${id}/desbloquear`, { method: 'POST' });
+
+            const textoAviso = `🔓 ${usuarioLogueado.nombre} dejó de trabajar en el archivo "${nombreArchivo}" (ubicado en la carpeta: ${nombreCarpeta}). Ya se encuentra desbloqueado.`;
+            const mensajeAviso = {
+                autor: usuarioLogueado.nombre,
+                destinario: 'general',
+                texto: textoAviso,
+                hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            await fetch('/api/chat', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(mensajeAviso) 
+            });
+        } catch (err) {
+            console.error('Error al desbloquear o enviar aviso al chat', err);
+        }
+
+        cargarElementos(); 
+    }
+}
+
 async function eliminarArchivo(id) { if (confirm('¿Eliminar documento?')) { await fetch(`/api/elementos/${id}`, { method: 'DELETE' }); cargarElementos(); } }
-async function reemplazarArchivo(id) { const i = document.createElement('input'); i.type = 'file'; i.onchange = async(e) => { if(e.target.files[0]) { const fd = new FormData(); fd.append('archivo', e.target.files[0]); alert('Subiendo reemplazo...'); await fetch(`/api/archivos/${id}`, { method: 'PUT', body: fd }); cargarElementos(); } }; i.click(); }
+
+// FUNCIÓN REEMPLAZAR/MODIFICAR ARCHIVO CON AVISO DE DESBLOQUEO AL CHAT GENERAL
+async function reemplazarArchivo(id) { 
+    const i = document.createElement('input'); 
+    i.type = 'file'; 
+    i.onchange = async(e) => { 
+        if(e.target.files[0]) { 
+            const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+            const archivoObj = todosLosElementos.find(e => e.id === id);
+            const nombreArchivo = archivoObj ? archivoObj.name : 'un archivo';
+
+            let nombreCarpeta = 'Directorio Principal';
+            if (archivoObj && archivoObj.parentId) {
+                const carpetaObj = todosLosElementos.find(e => e.id === archivoObj.parentId);
+                if (carpetaObj) nombreCarpeta = carpetaObj.name;
+            }
+
+            const fd = new FormData(); 
+            fd.append('archivo', e.target.files[0]); 
+            alert('Subiendo reemplazo...'); 
+            
+            try {
+                await fetch(`/api/archivos/${id}`, { method: 'PUT', body: fd });
+
+                const textoAviso = `🔓 ${usuarioLogueado.nombre} terminó de modificar y subió los cambios del archivo "${nombreArchivo}" (ubicado en la carpeta: ${nombreCarpeta}). Archivo desbloqueado.`;
+                const mensajeAviso = {
+                    autor: usuarioLogueado.nombre,
+                    destinario: 'general',
+                    texto: textoAviso,
+                    hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+                };
+
+                await fetch('/api/chat', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify(mensajeAviso) 
+                });
+            } catch(err) {
+                console.error('Error al reemplazar archivo o enviar aviso', err);
+            }
+
+            cargarElementos(); 
+        } 
+    }; 
+    i.click(); 
+}
 
 async function guardarObservacionServidor(id, texto) {
     const usr = JSON.parse(localStorage.getItem('usuarioPehuen'));
@@ -385,19 +459,18 @@ async function cargarChatNube() {
         if (historial.length > cantidadMensajesUltimaVez && cantidadMensajesUltimaVez > 0) {
             const ultimoMsg = historial[historial.length - 1];
             if (ultimoMsg.autor !== usuarioLogueado.nombre) {
-                // VERIFICAR SI EL MENSAJE ES PÚBLICO (GENERAL) O PRIVADO PARA MÍ
                 let esParaMi = false;
                 if (!ultimoMsg.destinario || ultimoMsg.destinario === 'general') {
-                    esParaMi = true; // Grupo general: suena para todos
+                    esParaMi = true; 
                 } else if (ultimoMsg.destinario === usuarioLogueado.nombre) {
-                    esParaMi = true; // Privado: suena solo para mí
+                    esParaMi = true; 
                 }
 
                 if (esParaMi) {
                     const badge = document.getElementById('badgeNotifChat');
                     if (badge) {
                         badge.style.display = 'inline-block';
-                        badge.textContent = `¡De ${ultimoMsg.autor}!`; // Muestra quién envió el mensaje
+                        badge.textContent = `¡De ${ultimoMsg.autor}!`; 
                     }
                     const audio = document.getElementById('audioNotificacion');
                     if (audio) {
@@ -438,7 +511,6 @@ async function cargarUsuarios() {
     const l = document.getElementById('listaUsuarios'); 
     if (!l) return;
     
-    // Contenedor con scroll vertical y horizontal para evitar que se corte la tabla y la columna de acciones
     const contenedorTabla = l.closest('div') || l.parentElement;
     if (contenedorTabla) {
         contenedorTabla.style.maxHeight = '350px';
