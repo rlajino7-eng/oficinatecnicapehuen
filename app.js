@@ -387,7 +387,19 @@ async function cargarChatNube() {
 }
 
 async function cargarUsuarios() {
-    const usrs = await (await fetch('/api/usuarios')).json(); const l = document.getElementById('listaUsuarios'); l.innerHTML = '';
+    const usrs = await (await fetch('/api/usuarios')).json(); 
+    const l = document.getElementById('listaUsuarios'); 
+    if (!l) return;
+    
+    // Contenedor con scroll vertical y horizontal para evitar que se corte la tabla y la columna de acciones
+    const contenedorTabla = l.closest('div') || l.parentElement;
+    if (contenedorTabla) {
+        contenedorTabla.style.maxHeight = '350px';
+        contenedorTabla.style.overflowY = 'auto';
+        contenedorTabla.style.overflowX = 'auto';
+    }
+
+    l.innerHTML = '';
     usrs.forEach(u => {
         const online = u.ultimoAcceso && (Date.now() - new Date(u.ultimoAcceso).getTime() < 120000);
         const indicadorConectado = online ? ' <span style="color:#22c55e; font-weight:bold;">● En línea</span>' : '';
