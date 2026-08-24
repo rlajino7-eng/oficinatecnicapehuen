@@ -73,6 +73,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (document.getElementById('inputBuscador')) document.getElementById('inputBuscador').addEventListener('input', renderizarDirectorioActual);
     
+    // AMPLIACIÓN DE CARGOS EN EL SELECTOR DE ROLES DEL FORMULARIO
+    const selectRol = document.getElementById('rolUser');
+    if (selectRol && selectRol.options.length <= 2) {
+        selectRol.innerHTML = `
+            <option value="admin">Administrador</option>
+            <option value="ingeniero">Ingeniero</option>
+            <option value="secretario/a">Secretario/a</option>
+            <option value="gerencia">Gerencia</option>
+            <option value="compras">Compras</option>
+            <option value="planificacion">Planificación</option>
+            <option value="control calidad">Control Calidad</option>
+            <option value="general">General</option>
+        `;
+    }
+
     if (document.getElementById('formUsuario')) {
         document.getElementById('formUsuario').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -280,7 +295,7 @@ async function reemplazarArchivo(id) {
             try {
                 await fetch(`/api/archivos/${id}`, { method: 'PUT', body: fd });
 
-                const textoAviso = `🔓 ${usuarioLogueado.nombre} terminó de modificar y subió los cambios del archivo "${nombreArchivo}" (ubicado en la carpeta: ${nombreCarpeta}). Archivo desbloqueado.`;
+                const textoAviso = `🔓 ${usuarioLogueado.nombre} dejó de trabajar en el archivo "${nombreArchivo}" (ubicado en la carpeta: ${nombreCarpeta}) y subió su modificación. Ya se encuentra desbloqueado.`;
                 const mensajeAviso = {
                     autor: usuarioLogueado.nombre,
                     destinario: 'general',
@@ -506,6 +521,7 @@ async function cargarChatNube() {
     } catch(e) {}
 }
 
+// GESTIÓN DE USUARIOS CON SCROLL, CARGOS AMPLIADOS Y BOTÓN DE EDICIÓN
 async function cargarUsuarios() {
     const usrs = await (await fetch('/api/usuarios')).json(); 
     const l = document.getElementById('listaUsuarios'); 
@@ -522,9 +538,45 @@ async function cargarUsuarios() {
     usrs.forEach(u => {
         const online = u.ultimoAcceso && (Date.now() - new Date(u.ultimoAcceso).getTime() < 120000);
         const indicadorConectado = online ? ' <span style="color:#22c55e; font-weight:bold;">● En línea</span>' : '';
-        l.innerHTML += `<tr><td>${u.nombre}${indicadorConectado}</td><td>${u.email}</td><td>${u.rol.toUpperCase()}</td><td><button onclick="eliminarUser(${u.id})" style="background:red; color:white; padding:2px 5px; border:none; cursor:pointer; font-weight:bold;">X</button></td></tr>`;
+        l.innerHTML += `<tr>
+            <td>${u.nombre}${indicadorConectado}</td>
+            <td>${u.email}</td>
+            <td>${u.rol.toUpperCase()}</td>
+            <td style="display:flex; gap:5px;">
+                <button onclick="editarUser(${u.id}, '${u.nombre}', '${u.email}', '${u.rol}')" style="background:#0284c7; color:white; padding:2px 6px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;" title="Editar usuario">✏️</button>
+                <button onclick="eliminarUser(${u.id})" style="background:red; color:white; padding:2px 6px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;" title="Eliminar acceso">X</button>
+            </td>
+        </tr>`;
     });
 }
+
+// FUNCIÓN PARA EDITAR USUARIOS DESDE EL PANEL DE ADMINISTRACIÓN
+async function editarUser(id, nombreActual, emailActual, rolActual) {
+    const nuevoNombre = prompt('Editar Nombre:', nombreActual);
+    if (nuevoNombre === null) return;
+    const nuevoEmail = prompt('Editar Correo:', emailActual);
+    if (nuevoEmail === null) return;
+    const nuevoRol = prompt('Editar Rol (admin, ingeniero, secretario/a, gerencia, compras, planificacion, control calidad, general):', rolActual);
+    if (nuevoRol === null) return;
+
+    try {
+        const res = await fetch(`/api/usuarios/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre: nuevoNombre.trim(), email: nuevoEmail.trim(), rol: nuevoRol.trim().toLowerCase() })
+        });
+        const data = await res.json();
+        if (data.success || res.ok) {
+            alert('Usuario actualizado con éxito.');
+            cargarUsuarios();
+        } else {
+            alert('Error al actualizar usuario: ' + (data.error || 'Desconocido'));
+        }
+    } catch (err) {
+        alert('Error de red al intentar editar el usuario.');
+    }
+}
+
 async function eliminarUser(id) { if(confirm('¿Revocar acceso?')) { await fetch(`/api/usuarios/${id}`, { method: 'DELETE' }); cargarUsuarios(); } }
 function toggleAdminModal() { const m = document.getElementById('adminModal'); m.style.display = m.style.display === 'flex' ? 'none' : 'flex'; }
 
