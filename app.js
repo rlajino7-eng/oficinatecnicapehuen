@@ -177,7 +177,54 @@ async function crearCarpetaActual() {
 
 async function renombrarCarpeta(id, actual) { const nuevo = prompt('Nuevo nombre:', actual); if (nuevo && nuevo.trim() !== actual) { await fetch(`/api/elementos/${id}/renombrar`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nuevoNombre: nuevo.trim() }) }); cargarElementos(); } }
 async function eliminarCarpeta(id, n) { if (confirm(`¿Eliminar "${n}"? Debe estar vacía.`)) { await fetch(`/api/elementos/${id}`, { method: 'DELETE' }); cargarElementos(); } }
-async function bloquearArchivo(id, l) { await fetch(`/api/archivos/${id}/bloquear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario: JSON.parse(localStorage.getItem('usuarioPehuen')).nombre }) }); if(l) window.open(l, '_blank'); cargarElementos(); }
+
+// FUNCIÓN BLOQUEAR ARCHIVO ACTUALIZADA CON AVISO DETALLADO AL CHAT GENERAL
+async function bloquearArchivo(id, l) { 
+    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+    
+    // Buscamos el nombre del archivo
+    const archivoObj = todosLosElementos.find(e => e.id === id);
+    const nombreArchivo = archivoObj ? archivoObj.name : 'un archivo';
+
+    // Buscamos el nombre de la carpeta donde se encuentra
+    let nombreCarpeta = 'Directorio Principal';
+    if (archivoObj && archivoObj.parentId) {
+        const carpetaObj = todosLosElementos.find(e => e.id === archivoObj.parentId);
+        if (carpetaObj) {
+            nombreCarpeta = carpetaObj.name;
+        }
+    }
+
+    try {
+        await fetch(`/api/archivos/${id}/bloquear`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ usuario: usuarioLogueado.nombre }) 
+        });
+
+        // Mensaje automático para el chat general
+        const textoAviso = `🔒 ${usuarioLogueado.nombre} está usando el archivo "${nombreArchivo}" (ubicado en la carpeta: ${nombreCarpeta}).`;
+        const mensajeAviso = {
+            autor: usuarioLogueado.nombre,
+            destinario: 'general',
+            texto: textoAviso,
+            hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+        };
+
+        await fetch('/api/chat', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(mensajeAviso) 
+        });
+
+    } catch (err) {
+        console.error('Error al bloquear o enviar aviso al chat', err);
+    }
+
+    if(l) window.open(l, '_blank'); 
+    cargarElementos(); 
+}
+
 async function desbloquearArchivo(id) { if(confirm('¿Forzar desbloqueo?')) { await fetch(`/api/archivos/${id}/desbloquear`, { method: 'POST' }); cargarElementos(); } }
 async function eliminarArchivo(id) { if (confirm('¿Eliminar documento?')) { await fetch(`/api/elementos/${id}`, { method: 'DELETE' }); cargarElementos(); } }
 async function reemplazarArchivo(id) { const i = document.createElement('input'); i.type = 'file'; i.onchange = async(e) => { if(e.target.files[0]) { const fd = new FormData(); fd.append('archivo', e.target.files[0]); alert('Subiendo reemplazo...'); await fetch(`/api/archivos/${id}`, { method: 'PUT', body: fd }); cargarElementos(); } }; i.click(); }
