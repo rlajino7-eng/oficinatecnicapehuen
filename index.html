@@ -113,6 +113,13 @@
                     
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
                         <input type="text" id="inputBuscador" placeholder="🔍 Buscar archivo, anexo, nombre..." style="padding: 8px 15px; border-radius: 6px; border: 1px solid #cbd5e1; width: 250px; font-family: 'Inter', sans-serif;">
+                        
+                        <!-- BOTONES DE CAMBIO DE VISTA POR USUARIO -->
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <button onclick="cambiarVistaUsuario('cuadricula')" title="Vista Cuadrícula" style="background: #e2e8f0; border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">🗂️</button>
+                            <button onclick="cambiarVistaUsuario('lista')" title="Vista Lista" style="background: #e2e8f0; border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">📋</button>
+                        </div>
+
                         <button id="btnCrearCarpeta" class="btn-nueva-carpeta" onclick="crearCarpetaActual()">➕ Nueva Carpeta</button>
                     </div>
                 </div>
