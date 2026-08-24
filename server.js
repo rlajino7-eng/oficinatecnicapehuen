@@ -116,12 +116,36 @@ app.post('/api/login', (req, res) => {
       res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
   }
 });
+
 app.get('/api/usuarios', (req, res) => res.json(usuariosAutorizados));
+
 app.post('/api/usuarios', async (req, res) => {
   usuariosAutorizados.push({ id: Date.now(), ...req.body });
   await guardarUsuariosEnDrive();
   res.json({ success: true });
 });
+
+// NUEVA RUTA: Editar un usuario existente y guardarlo en Google Drive
+app.put('/api/usuarios/:id', async (req, res) => {
+  try {
+    const { nombre, email, rol } = req.body;
+    const usuario = usuariosAutorizados.find(u => u.id == req.params.id);
+    
+    if (usuario) {
+      if (nombre) usuario.nombre = nombre;
+      if (email) usuario.email = email;
+      if (rol) usuario.rol = rol;
+      
+      await guardarUsuariosEnDrive();
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 app.delete('/api/usuarios/:id', async (req, res) => {
   usuariosAutorizados = usuariosAutorizados.filter(u => u.id != req.params.id);
   await guardarUsuariosEnDrive();
