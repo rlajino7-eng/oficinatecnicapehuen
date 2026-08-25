@@ -86,16 +86,28 @@ async function crearCarpetaPersonalSiNoExiste(nombreUsuario) {
     }
 }
 
-// CACHÉ ROBUSTA CON LÍMITE AMPLIADO (1000 archivos)
+// CACHÉ ACTUALIZADA CON PAGINACIÓN (Rompe el límite de 1000 archivos para evitar que desaparezcan carpetas)
 async function refrescarCache() {
     try {
-        const response = await drive.files.list({
-            q: `trashed = false and name != 'usuarios_pehuen.json' and name != 'chat_pehuen.json'`,
-            fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime, parents, properties, size)',
-            orderBy: 'createdTime desc',
-            pageSize: 1000
-        });
-        driveCache = response.data.files.map(f => {
+        let todosLosArchivos = [];
+        let pageToken = null;
+
+        do {
+            const response = await drive.files.list({
+                q: `trashed = false and name != 'usuarios_pehuen.json' and name != 'chat_pehuen.json'`,
+                fields: 'nextPageToken, files(id, name, mimeType, webViewLink, webContentLink, createdTime, parents, properties, size)',
+                orderBy: 'createdTime desc',
+                pageSize: 1000,
+                pageToken: pageToken
+            });
+            
+            if (response.data.files) {
+                todosLosArchivos = todosLosArchivos.concat(response.data.files);
+            }
+            pageToken = response.data.nextPageToken;
+        } while (pageToken);
+
+        driveCache = todosLosArchivos.map(f => {
             const pId = f.parents && f.parents[0] ? f.parents[0] : FOLDER_ID;
             return {
                 ...f,
