@@ -66,6 +66,26 @@ async function guardarChatEnDrive() {
     await drive.files.update({ fileId: idArchivoChat, media: { mimeType: 'application/json', body: bufferStream } });
 }
 
+// FUNCIÓN PARA CREAR CARPETA PERSONAL AUTOMÁTICA EN DRIVE
+async function crearCarpetaPersonalSiNoExiste(nombreUsuario) {
+    try {
+        const nombreCarpeta = `Personal - ${nombreUsuario}`;
+        const check = await drive.files.list({ 
+            q: `'${FOLDER_ID}' in parents and name = '${nombreCarpeta}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`, 
+            fields: 'files(id)' 
+        });
+        if (check.data.files.length === 0) {
+            await drive.files.create({ 
+                resource: { name: nombreCarpeta, mimeType: 'application/vnd.google-apps.folder', parents: [FOLDER_ID] }, 
+                fields: 'id' 
+            });
+            await refrescarCache();
+        }
+    } catch (e) {
+        console.error("Error al crear carpeta personal:", e.message);
+    }
+}
+
 // CACHÉ ROBUSTA CON LÍMITE AMPLIADO (1000 archivos)
 async function refrescarCache() {
     try {
@@ -104,13 +124,14 @@ app.post('/api/chat', async (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const usuario = usuariosAutorizados.find(u => u.email === email && u.password === password);
   if (usuario) {
       // Registramos la sesión activa al hacer login de forma exitosa
       usuario.ultimoAcceso = new Date().toISOString();
       guardarUsuariosEnDrive().catch(e => {});
+      await crearCarpetaPersonalSiNoExiste(usuario.nombre);
       res.json({ success: true, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
   } else {
       res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
@@ -120,8 +141,10 @@ app.post('/api/login', (req, res) => {
 app.get('/api/usuarios', (req, res) => res.json(usuariosAutorizados));
 
 app.post('/api/usuarios', async (req, res) => {
-  usuariosAutorizados.push({ id: Date.now(), ...req.body });
+  const nuevoUser = { id: Date.now(), ...req.body };
+  usuariosAutorizados.push(nuevoUser);
   await guardarUsuariosEnDrive();
+  await crearCarpetaPersonalSiNoExiste(nuevoUser.nombre);
   res.json({ success: true });
 });
 
@@ -132,11 +155,15 @@ app.put('/api/usuarios/:id', async (req, res) => {
     const usuario = usuariosAutorizados.find(u => u.id == req.params.id);
     
     if (usuario) {
+      const nombreAnterior = usuario.nombre;
       if (nombre) usuario.nombre = nombre;
       if (email) usuario.email = email;
       if (rol) usuario.rol = rol;
       
       await guardarUsuariosEnDrive();
+      if (nombre && nombre !== nombreAnterior) {
+          await crearCarpetaPersonalSiNoExiste(nombre);
+      }
       res.json({ success: true });
     } else {
       res.status(404).json({ success: false, error: 'Usuario no encontrado' });
