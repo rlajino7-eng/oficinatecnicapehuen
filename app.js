@@ -151,7 +151,7 @@ function renderizarDirectorioActual() {
     });
     
     if (buscador) { carpetas = carpetas.filter(c => c.name.toLowerCase().includes(buscador)); archivos = archivos.filter(a => a.name.toLowerCase().includes(buscador)); }
-    if (document.getElementById('contadorArchivos')) document.getElementById('contadorArchivos'].textContent = `(${archivos.length} archivos)`;
+    if (document.getElementById('contadorArchivos')) document.getElementById('contadorArchivos').textContent = `(${archivos.length} archivos)`;
 
     if (carpetas.length === 0 && archivos.length === 0) { grilla.innerHTML = `<p style="color: #64748b;">${buscador ? 'Sin resultados.' : 'Esta ubicación está vacía.'}</p>`; }
     else {
