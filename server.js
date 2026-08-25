@@ -20,8 +20,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 let driveCache = [];
 let usuariosAutorizados = [];
 let chatHistorial = [];
+let anunciosHistorial = []; // NUEVO: Historial de anuncios para el tablón
 let idArchivoUsuarios = null;
 let idArchivoChat = null;
+let idArchivoAnuncios = null; // NUEVO: ID del archivo de anuncios en Drive
 
 async function cargarUsuariosDesdeDrive() {
     try {
@@ -54,6 +56,23 @@ async function cargarChatDesdeDrive() {
     } catch (e) { console.error("Error chat:", e.message); }
 }
 
+// NUEVO: Cargar Anuncios desde Google Drive
+async function cargarAnunciosDesdeDrive() {
+    try {
+        const res = await drive.files.list({ q: `'${FOLDER_ID}' in parents and name = 'anuncios_pehuen.json' and trashed = false`, fields: 'files(id)' });
+        if (res.data.files.length > 0) {
+            idArchivoAnuncios = res.data.files[0].id;
+            const file = await drive.files.get({ fileId: idArchivoAnuncios, alt: 'media' });
+            anunciosHistorial = file.data || [];
+        } else {
+            anunciosHistorial = [{ id: 1, autor: 'Administración', texto: 'Bienvenidos a la Intranet Pehuén.', fecha: new Date().toLocaleDateString('es-CL') }];
+            const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(anunciosHistorial));
+            const newFile = await drive.files.create({ resource: { name: 'anuncios_pehuen.json', parents: [FOLDER_ID] }, media: { mimeType: 'application/json', body: bufferStream }, fields: 'id' });
+            idArchivoAnuncios = newFile.data.id;
+        }
+    } catch (e) { console.error("Error anuncios:", e.message); }
+}
+
 async function guardarUsuariosEnDrive() {
     if (!idArchivoUsuarios) return;
     const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(usuariosAutorizados));
@@ -64,6 +83,13 @@ async function guardarChatEnDrive() {
     if (!idArchivoChat) return;
     const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(chatHistorial));
     await drive.files.update({ fileId: idArchivoChat, media: { mimeType: 'application/json', body: bufferStream } });
+}
+
+// NUEVO: Guardar Anuncios en Google Drive
+async function guardarAnunciosEnDrive() {
+    if (!idArchivoAnuncios) return;
+    const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(anunciosHistorial));
+    await drive.files.update({ fileId: idArchivoAnuncios, media: { mimeType: 'application/json', body: bufferStream } });
 }
 
 // FUNCIÓN PARA CREAR CARPETA PERSONAL AUTOMÁTICA EN DRIVE
@@ -94,7 +120,7 @@ async function refrescarCache() {
 
         do {
             const response = await drive.files.list({
-                q: `trashed = false and name != 'usuarios_pehuen.json' and name != 'chat_pehuen.json'`,
+                q: `trashed = false and name != 'usuarios_pehuen.json' and name != 'chat_pehuen.json' and name != 'anuncios_pehuen.json'`,
                 fields: 'nextPageToken, files(id, name, mimeType, webViewLink, webContentLink, createdTime, parents, properties, size)',
                 orderBy: 'createdTime desc',
                 pageSize: 1000,
@@ -125,7 +151,7 @@ async function refrescarCache() {
     } catch (error) { console.error('Error caché:', error.message); }
 }
 
-cargarUsuariosDesdeDrive().then(() => cargarChatDesdeDrive()).then(() => refrescarCache());
+cargarUsuariosDesdeDrive().then(() => cargarChatDesdeDrive()).then(() => cargarAnunciosDesdeDrive()).then(() => refrescarCache());
 setInterval(refrescarCache, 5 * 60 * 1000);
 
 app.get('/api/chat', (req, res) => res.json(chatHistorial));
@@ -135,6 +161,16 @@ app.post('/api/chat', async (req, res) => {
     chatHistorial.push(nuevoMsg);
     if(chatHistorial.length > 200) chatHistorial.shift();
     await guardarChatEnDrive();
+    res.json({ success: true });
+});
+
+// NUEVAS RUTAS: API para el Tablón de Anuncios
+app.get('/api/anuncios', (req, res) => res.json(anunciosHistorial));
+app.post('/api/anuncios', async (req, res) => {
+    const nuevoAnuncio = { id: Date.now(), ...req.body, fecha: new Date().toLocaleDateString('es-CL') };
+    anunciosHistorial.unshift(nuevoAnuncio);
+    if(anunciosHistorial.length > 20) anunciosHistorial.pop();
+    await guardarAnunciosEnDrive();
     res.json({ success: true });
 });
 
