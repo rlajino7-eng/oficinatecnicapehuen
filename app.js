@@ -139,23 +139,16 @@ function renderizarDirectorioActual() {
     let carpetas = elementos.filter(e => e.esCarpeta); 
     let archivos = elementos.filter(e => !e.esCarpeta);
 
-    // FILTRO DE PRIVACIDAD: Ocultar carpetas personales ajenas si no es admin
-    if (usuarioLogueado.rol !== 'admin') {
-        carpetas = carpetas.filter(c => {
-            const nombreCarpetaUpper = c.name.toUpperCase();
-            // Si la carpeta indica ser personal o contiene formato de carpeta privada de otro usuario
-            if (nombreCarpetaUpper.includes('PERSONAL') || nombreCarpetaUpper.includes('PRIVADO')) {
-                // Solo se muestra si lleva exactamente el nombre del usuario logueado
-                if (!nombreCarpetaUpper.includes(usuarioLogueado.nombre.toUpperCase())) {
-                    return false;
-                }
-            }
-            if (c.esPersonal && c.propietario && c.propietario !== usuarioLogueado.nombre) {
+    // FILTRO DE PRIVACIDAD ESTRICTA: Ocultar carpetas personales ajenas para TODOS (incluyendo admin)
+    carpetas = carpetas.filter(c => {
+        const nombreCarpetaUpper = c.name.toUpperCase();
+        if (nombreCarpetaUpper.includes('PERSONAL') || nombreCarpetaUpper.includes('PRIVADO')) {
+            if (!nombreCarpetaUpper.includes(usuarioLogueado.nombre.toUpperCase())) {
                 return false;
             }
-            return true;
-        });
-    }
+        }
+        return true;
+    });
     
     if (buscador) { carpetas = carpetas.filter(c => c.name.toLowerCase().includes(buscador)); archivos = archivos.filter(a => a.name.toLowerCase().includes(buscador)); }
     if (document.getElementById('contadorArchivos')) document.getElementById('contadorArchivos').textContent = `(${archivos.length} archivos)`;
