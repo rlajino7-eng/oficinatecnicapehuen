@@ -133,7 +133,8 @@ async function cargarAnunciosSeguro() {
             }
         }
 
-        let htmlAdminBtn = (usuarioLogueado && usuarioLogueado.rol === 'admin') ? 
+        // MODIFICADO: Permite acceso a 'admin' o 'gerencia'
+        let htmlAdminBtn = (usuarioLogueado && (usuarioLogueado.rol === 'admin' || usuarioLogueado.rol === 'gerencia')) ? 
             `<button onclick="abrirModalAnuncioSeguro()" style="background:#0284c7; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">📢 Publicar Nuevo Anuncio</button>` : '';
 
         let htmlAnuncios = Array.isArray(anuncios) ? anuncios.map(a => `
