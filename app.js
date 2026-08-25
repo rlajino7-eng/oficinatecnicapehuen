@@ -103,10 +103,81 @@ function mostrarApp(usuario) {
     document.getElementById('loginScreen').style.display = 'none'; document.getElementById('mainApp').style.display = 'block';
     document.getElementById('badgeUsuario').textContent = `${usuario.nombre} (${usuario.rol.toUpperCase()})`;
     if (usuario.rol === 'admin') { document.getElementById('btnAdmin').style.display = 'inline-block'; cargarUsuarios(); }
-    cargarClimaLaja(); initChat(); cargarElementos();
+    cargarClimaLaja(); initChat(); cargarElementos(); cargarAnuncios();
 }
 function cerrarSesion() { localStorage.removeItem('usuarioPehuen'); location.reload(); }
 async function cargarElementos() { const res = await fetch('/api/elementos'); todosLosElementos = await res.json(); renderizarDirectorioActual(); }
+
+// NUEVO: Funciones para cargar y publicar Anuncios del Tablón
+async function cargarAnuncios() {
+    try {
+        const res = await fetch('/api/anuncios');
+        const anuncios = await res.json();
+        
+        // Buscamos o creamos una sección en la interfaz para el Tablón
+        let contenedorTablon = document.getElementById('tablonAnunciosContainer');
+        const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+
+        if (!contenedorTablon) {
+            contenedorTablon = document.createElement('div');
+            contenedorTablon.id = 'tablonAnunciosContainer';
+            contenedorTablon.style.cssText = 'background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);';
+            
+            const seccionPrincipal = document.querySelector('main') || document.getElementById('mainApp');
+            if (seccionPrincipal) {
+                seccionPrincipal.prepend(contenedorTablon);
+            }
+        }
+
+        let htmlAdminBtn = (usuarioLogueado && usuarioLogueado.rol === 'admin') ? 
+            `<button onclick="abrirModalAnuncio()" style="background:#0284c7; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">📢 Publicar Nuevo Anuncio</button>` : '';
+
+        let htmlAnuncios = anuncios.map(a => `
+            <div style="background:white; border-left:4px solid #0284c7; padding:10px 15px; margin-bottom:10px; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <strong style="color:#0f172a; font-size:14px;">📌 ${a.autor}</strong>
+                    <span style="color:#64748b; font-size:11px;">${a.fecha}</span>
+                </div>
+                <p style="color:#334155; font-size:13px; margin:0; line-height:1.4;">${a.texto}</p>
+            </div>
+        `).join('');
+
+        contenedorTablon.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0; font-size:16px; color:#1e293b;">📋 Tablón de Anuncios y Comunicados</h2>
+                ${htmlAdminBtn}
+            </div>
+            <div style="max-height: 200px; overflow-y: auto;">
+                ${htmlAnuncios || '<p style="color:#64748b; font-size:13px;">No hay anuncios publicados.</p>'}
+            </div>
+        `;
+    } catch (e) {
+        console.error('Error cargando anuncios:', e);
+    }
+}
+
+function abrirModalAnuncio() {
+    const textoAnuncio = prompt('Escribe el comunicado o anuncio oficial para el equipo:');
+    if (!textoAnuncio || !textoAnuncio.trim()) return;
+    
+    const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
+    
+    fetch('/api/anuncios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autor: usuarioLogueado.nombre, texto: textoAnuncio.trim() })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('¡Anuncio publicado con éxito!');
+            cargarAnuncios();
+        } else {
+            alert('Error al publicar anuncio.');
+        }
+    })
+    .catch(err => alert('Error de red al publicar.'));
+}
 
 function renderizarDirectorioActual() {
     const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
@@ -118,7 +189,7 @@ function renderizarDirectorioActual() {
 
     const grilla = document.getElementById('grillaDirectorio'); const lista = document.getElementById('listaArchivosCarpeta');
     grilla.innerHTML = ''; lista.innerHTML = '';
-    const buscador = document.getElementById('inputBuscador') ? document.getElementById('inputBuscador').value.toLowerCase() : '';
+    const buscador = document.getElementById('inputBuscador') ? document.getElementById('inputBuscador'].value.toLowerCase() : '';
 
     // LEER PREFERENCIA DE VISTA DEL USUARIO
     const vistaPreferida = localStorage.getItem('vistaPreferidaPehuen') || 'cuadricula';
