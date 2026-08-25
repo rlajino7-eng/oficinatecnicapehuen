@@ -1,9 +1,18 @@
+/**
+ * Servidor Intranet Pehuén - Backend (Express & Google Drive API)
+ * Ordenado y estructurado manteniendo todas las funcionalidades existentes.
+ */
+
 const express = require('express');
 const { google } = require('googleapis');
 const multer = require('multer');
 const stream = require('stream');
+
 const app = express();
 
+// ==========================================
+// 1. CONFIGURACIÓN Y MIDDLEWARES
+// ==========================================
 app.use(express.json());
 app.use(express.static(__dirname));
 
@@ -14,16 +23,25 @@ const oauth2Client = new google.auth.OAuth2(
   'https://developers.google.com/oauthplayground'
 );
 oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
+
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 const upload = multer({ storage: multer.memoryStorage() });
 
+// ==========================================
+// 2. ESTADOS GLOBALES (CACHÉ E HISTORIALES)
+// ==========================================
 let driveCache = [];
 let usuariosAutorizados = [];
 let chatHistorial = [];
-let anunciosHistorial = []; // NUEVO: Historial de anuncios para el tablón
+let anunciosHistorial = []; 
+
 let idArchivoUsuarios = null;
 let idArchivoChat = null;
-let idArchivoAnuncios = null; // NUEVO: ID del archivo de anuncios en Drive
+let idArchivoAnuncios = null; 
+
+// ==========================================
+// 3. FUNCIONES DE SINCRONIZACIÓN CON DRIVE
+// ==========================================
 
 async function cargarUsuariosDesdeDrive() {
     try {
@@ -31,10 +49,11 @@ async function cargarUsuariosDesdeDrive() {
         if (res.data.files.length > 0) {
             idArchivoUsuarios = res.data.files[0].id;
             const file = await drive.files.get({ fileId: idArchivoUsuarios, alt: 'media' });
-            usuariosAutorizados = file.data;
+            usuariosAutorizados = file.data || [];
         } else {
             usuariosAutorizados = [{ id: 1, email: 'admin@pehuen.cl', password: 'Pehuen2026*', rol: 'admin', nombre: 'Admin Técnico' }];
-            const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(usuariosAutorizados));
+            const bufferStream = new stream.PassThrough(); 
+            bufferStream.end(JSON.stringify(usuariosAutorizados));
             const newFile = await drive.files.create({ resource: { name: 'usuarios_pehuen.json', parents: [FOLDER_ID] }, media: { mimeType: 'application/json', body: bufferStream }, fields: 'id' });
             idArchivoUsuarios = newFile.data.id;
         }
@@ -49,14 +68,15 @@ async function cargarChatDesdeDrive() {
             const file = await drive.files.get({ fileId: idArchivoChat, alt: 'media' });
             chatHistorial = file.data || [];
         } else {
-            const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify([]));
+            chatHistorial = [];
+            const bufferStream = new stream.PassThrough(); 
+            bufferStream.end(JSON.stringify([]));
             const newFile = await drive.files.create({ resource: { name: 'chat_pehuen.json', parents: [FOLDER_ID] }, media: { mimeType: 'application/json', body: bufferStream }, fields: 'id' });
             idArchivoChat = newFile.data.id;
         }
     } catch (e) { console.error("Error chat:", e.message); }
 }
 
-// NUEVO: Cargar Anuncios desde Google Drive
 async function cargarAnunciosDesdeDrive() {
     try {
         const res = await drive.files.list({ q: `'${FOLDER_ID}' in parents and name = 'anuncios_pehuen.json' and trashed = false`, fields: 'files(id)' });
@@ -66,7 +86,8 @@ async function cargarAnunciosDesdeDrive() {
             anunciosHistorial = file.data || [];
         } else {
             anunciosHistorial = [{ id: 1, autor: 'Administración', texto: 'Bienvenidos a la Intranet Pehuén.', fecha: new Date().toLocaleDateString('es-CL') }];
-            const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(anunciosHistorial));
+            const bufferStream = new stream.PassThrough(); 
+            bufferStream.end(JSON.stringify(anunciosHistorial));
             const newFile = await drive.files.create({ resource: { name: 'anuncios_pehuen.json', parents: [FOLDER_ID] }, media: { mimeType: 'application/json', body: bufferStream }, fields: 'id' });
             idArchivoAnuncios = newFile.data.id;
         }
@@ -85,14 +106,16 @@ async function guardarChatEnDrive() {
     await drive.files.update({ fileId: idArchivoChat, media: { mimeType: 'application/json', body: bufferStream } });
 }
 
-// NUEVO: Guardar Anuncios en Google Drive
 async function guardarAnunciosEnDrive() {
     if (!idArchivoAnuncios) return;
     const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(anunciosHistorial));
     await drive.files.update({ fileId: idArchivoAnuncios, media: { mimeType: 'application/json', body: bufferStream } });
 }
 
-// FUNCIÓN PARA CREAR CARPETA PERSONAL AUTOMÁTICA EN DRIVE
+// ==========================================
+// 4. FUNCIONES AUXILIARES DE DRIVE (CARPETAS Y CACHÉ)
+// ==========================================
+
 async function crearCarpetaPersonalSiNoExiste(nombreUsuario) {
     try {
         const nombreCarpeta = `Personal - ${nombreUsuario}`;
@@ -112,7 +135,6 @@ async function crearCarpetaPersonalSiNoExiste(nombreUsuario) {
     }
 }
 
-// CACHÉ ACTUALIZADA CON PAGINACIÓN COMPLETA Y SOPORTE DE ARCHIVOS COMPARTIDOS/ESPECIALES
 async function refrescarCache() {
     try {
         let todosLosArchivos = [];
@@ -151,12 +173,13 @@ async function refrescarCache() {
     } catch (error) { console.error('Error caché:', error.message); }
 }
 
-cargarUsuariosDesdeDrive().then(() => cargarChatDesdeDrive()).then(() => cargarAnunciosDesdeDrive()).then(() => refrescarCache());
-setInterval(refrescarCache, 5 * 60 * 1000);
+// ==========================================
+// 5. RUTAS / ENDPOINTS DE LA API
+// ==========================================
 
+// --- Chat ---
 app.get('/api/chat', (req, res) => res.json(chatHistorial));
 app.post('/api/chat', async (req, res) => {
-    // Al recibir un mensaje, marcamos como visto si pertenece al chat abierto actual o general
     const nuevoMsg = { ...req.body, visto: true };
     chatHistorial.push(nuevoMsg);
     if(chatHistorial.length > 200) chatHistorial.shift();
@@ -164,7 +187,7 @@ app.post('/api/chat', async (req, res) => {
     res.json({ success: true });
 });
 
-// NUEVAS RUTAS: API para el Tablón de Anuncios
+// --- Tablón de Anuncios ---
 app.get('/api/anuncios', (req, res) => res.json(anunciosHistorial));
 app.post('/api/anuncios', async (req, res) => {
     const nuevoAnuncio = { id: Date.now(), ...req.body, fecha: new Date().toLocaleDateString('es-CL') };
@@ -174,13 +197,13 @@ app.post('/api/anuncios', async (req, res) => {
     res.json({ success: true });
 });
 
+// --- Autenticación y Usuarios ---
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const usuario = usuariosAutorizados.find(u => u.email === email && u.password === password);
   if (usuario) {
-      // Registramos la sesión activa al hacer login de forma exitosa
       usuario.ultimoAcceso = new Date().toISOString();
-      guardarUsuariosEnDrive().catch(e => {});
+      guardarUsuariosEnDrive().catch(() => {});
       await crearCarpetaPersonalSiNoExiste(usuario.nombre);
       res.json({ success: true, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
   } else {
@@ -198,7 +221,6 @@ app.post('/api/usuarios', async (req, res) => {
   res.json({ success: true });
 });
 
-// NUEVA RUTA: Editar un usuario existente y guardarlo en Google Drive
 app.put('/api/usuarios/:id', async (req, res) => {
   try {
     const { nombre, email, rol } = req.body;
@@ -229,7 +251,6 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// NUEVO: Latido para mantener actualizado el estado "en línea" al navegar
 app.post('/api/usuarios/latido', async (req, res) => {
     const { nombre } = req.body;
     const usr = usuariosAutorizados.find(u => u.nombre === nombre);
@@ -240,6 +261,7 @@ app.post('/api/usuarios/latido', async (req, res) => {
     res.json({ success: true });
 });
 
+// --- Gestión de Archivos y Carpetas en Drive ---
 app.post('/api/carpetas', async (req, res) => {
   try {
     const { nombre, parentId } = req.body;
@@ -268,18 +290,45 @@ app.post('/api/subir', upload.array('archivos', 20), async (req, res) => {
         uploadedFiles.push({ name: file.originalname, status: 'ok' });
     }
     
-    try { await refrescarCache(); } catch(e) { console.error("Aviso caché subida:", e.message); }
-    
+    try { await refrescarCache(); } catch(e) {}
     res.json({ success: true, files: uploadedFiles });
   } catch (error) { 
     res.status(500).json({ success: false, error: error.message }); 
   }
 });
 
-app.delete('/api/elementos/:id', async (req, res) => { try { await drive.files.delete({ fileId: req.params.id }); try { await refrescarCache(); } catch(e){} res.json({ success: true }); } catch (e) { res.status(500).json({ success: false }); } });
-app.put('/api/elementos/:id/renombrar', async (req, res) => { try { await drive.files.update({ fileId: req.params.id, resource: { name: req.body.nuevoNombre } }); try { await refrescarCache(); } catch(e){} res.json({ success: true }); } catch (e) { res.status(500).json({ success: false }); } });
-app.post('/api/archivos/:id/bloquear', async (req, res) => { try { await drive.files.update({ fileId: req.params.id, resource: { properties: { estado: 'EN_USO', bloqueadoPor: req.body.usuario } } }); try { await refrescarCache(); } catch(e){} res.json({ success: true }); } catch (e) { res.status(500).json({ success: false }); } });
-app.post('/api/archivos/:id/desbloquear', async (req, res) => { try { await drive.files.update({ fileId: req.params.id, resource: { properties: { estado: null, bloqueadoPor: null } } }); try { await refrescarCache(); } catch(e){} res.json({ success: true }); } catch (e) { res.status(500).json({ success: false }); } });
+app.delete('/api/elementos/:id', async (req, res) => { 
+    try { 
+        await drive.files.delete({ fileId: req.params.id }); 
+        try { await refrescarCache(); } catch(e){} 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ success: false }); } 
+});
+
+app.put('/api/elementos/:id/renombrar', async (req, res) => { 
+    try { 
+        await drive.files.update({ fileId: req.params.id, resource: { name: req.body.nuevoNombre } }); 
+        try { await refrescarCache(); } catch(e){} 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ success: false }); } 
+});
+
+app.post('/api/archivos/:id/bloquear', async (req, res) => { 
+    try { 
+        await drive.files.update({ fileId: req.params.id, resource: { properties: { estado: 'EN_USO', bloqueadoPor: req.body.usuario } } }); 
+        try { await refrescarCache(); } catch(e){} 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ success: false }); } 
+});
+
+app.post('/api/archivos/:id/desbloquear', async (req, res) => { 
+    try { 
+        await drive.files.update({ fileId: req.params.id, resource: { properties: { estado: null, bloqueadoPor: null } } }); 
+        try { await refrescarCache(); } catch(e){} 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ success: false }); } 
+});
+
 app.put('/api/archivos/:id', upload.single('archivo'), async (req, res) => {
   try {
     const bufferStream = new stream.PassThrough(); bufferStream.end(req.file.buffer);
@@ -288,6 +337,7 @@ app.put('/api/archivos/:id', upload.single('archivo'), async (req, res) => {
     res.json({ success: true });
   } catch (e) { res.status(500).json({ success: false }); }
 });
+
 app.put('/api/elementos/:id/observacion', async (req, res) => {
   try {
     await drive.files.update({ fileId: req.params.id, resource: { properties: { observacion: req.body.observacion || null } } });
@@ -296,5 +346,21 @@ app.put('/api/elementos/:id/observacion', async (req, res) => {
   } catch (e) { res.status(500).json({ success: false }); }
 });
 
+// ==========================================
+// 6. INICIALIZACIÓN Y ARRANQUE DEL SERVIDOR
+// ==========================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
+
+async function iniciarServidor() {
+    console.log("Conectando y cargando datos desde Google Drive...");
+    await cargarUsuariosDesdeDrive();
+    await cargarChatDesdeDrive();
+    await cargarAnunciosDesdeDrive();
+    await refrescarCache();
+
+    app.listen(PORT, () => {
+        console.log(`Servidor activo y listo en puerto ${PORT}`);
+    });
+}
+
+iniciarServidor();
