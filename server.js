@@ -86,7 +86,7 @@ async function crearCarpetaPersonalSiNoExiste(nombreUsuario) {
     }
 }
 
-// CACHÉ ACTUALIZADA CON PAGINACIÓN (Rompe el límite de 1000 archivos para evitar que desaparezcan carpetas)
+// CACHÉ ACTUALIZADA CON PAGINACIÓN COMPLETA Y SOPORTE DE ARCHIVOS COMPARTIDOS/ESPECIALES
 async function refrescarCache() {
     try {
         let todosLosArchivos = [];
@@ -98,7 +98,9 @@ async function refrescarCache() {
                 fields: 'nextPageToken, files(id, name, mimeType, webViewLink, webContentLink, createdTime, parents, properties, size)',
                 orderBy: 'createdTime desc',
                 pageSize: 1000,
-                pageToken: pageToken
+                pageToken: pageToken,
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true
             });
             
             if (response.data.files) {
