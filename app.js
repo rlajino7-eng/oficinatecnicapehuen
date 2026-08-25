@@ -139,10 +139,10 @@ function renderizarDirectorioActual() {
     let carpetas = elementos.filter(e => e.esCarpeta); 
     let archivos = elementos.filter(e => !e.esCarpeta);
 
-    // FILTRO DE PRIVACIDAD ESTRICTA: Ocultar carpetas personales ajenas para TODOS (incluyendo admin)
+    // FILTRO DE PRIVACIDAD CORREGIDO: Solo oculta carpetas si empiezan exactamente con "PERSONAL -" o "PRIVADO -"
     carpetas = carpetas.filter(c => {
         const nombreCarpetaUpper = c.name.toUpperCase();
-        if (nombreCarpetaUpper.includes('PERSONAL') || nombreCarpetaUpper.includes('PRIVADO')) {
+        if (nombreCarpetaUpper.startsWith('PERSONAL') || nombreCarpetaUpper.startsWith('PRIVADO')) {
             if (!nombreCarpetaUpper.includes(usuarioLogueado.nombre.toUpperCase())) {
                 return false;
             }
@@ -151,7 +151,7 @@ function renderizarDirectorioActual() {
     });
     
     if (buscador) { carpetas = carpetas.filter(c => c.name.toLowerCase().includes(buscador)); archivos = archivos.filter(a => a.name.toLowerCase().includes(buscador)); }
-    if (document.getElementById('contadorArchivos')) document.getElementById('contadorArchivos').textContent = `(${archivos.length} archivos)`;
+    if (document.getElementById('contadorArchivos')) document.getElementById('contadorArchivos'].textContent = `(${archivos.length} archivos)`;
 
     if (carpetas.length === 0 && archivos.length === 0) { grilla.innerHTML = `<p style="color: #64748b;">${buscador ? 'Sin resultados.' : 'Esta ubicación está vacía.'}</p>`; }
     else {
