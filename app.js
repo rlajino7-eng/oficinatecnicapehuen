@@ -4,6 +4,7 @@ let chatModoActual = 'general';
 let usuarioDestinoPrivado = '';
 let cantidadMensajesUltimaVez = 0;
 let chatAbierto = false;
+let todosLosAnuncios = [];
 
 // GENERADOR DE COLOR AUTOMÁTICO SEGÚN EL NOMBRE
 function obtenerColorAutor(nombre) {
@@ -112,12 +113,13 @@ function mostrarApp(usuario) {
 function cerrarSesion() { localStorage.removeItem('usuarioPehuen'); location.reload(); }
 async function cargarElementos() { const res = await fetch('/api/elementos'); todosLosElementos = await res.json(); renderizarDirectorioActual(); }
 
-// FUNCIÓN SEGURA PARA EL TABLÓN DE ANUNCIOS (SIN ROMPER NADA)
+// FUNCIÓN SEGURA PARA EL TABLÓN DE ANUNCIOS (CON PUBLICACIÓN, EDICIÓN Y ELIMINACIÓN)
 async function cargarAnunciosSeguro() {
     try {
         const res = await fetch('/api/anuncios');
         if (!res.ok) return;
         const anuncios = await res.json();
+        todosLosAnuncios = Array.isArray(anuncios) ? anuncios : [];
         
         let contenedorTablon = document.getElementById('tablonAnunciosContainer');
         const usuarioLogueado = JSON.parse(localStorage.getItem('usuarioPehuen'));
@@ -133,19 +135,26 @@ async function cargarAnunciosSeguro() {
             }
         }
 
-        // MODIFICADO: Permite acceso a 'admin' o 'gerencia'
-        let htmlAdminBtn = (usuarioLogueado && (usuarioLogueado.rol === 'admin' || usuarioLogueado.rol === 'gerencia')) ? 
+        const esAutorizado = usuarioLogueado && (usuarioLogueado.rol === 'admin' || usuarioLogueado.rol === 'gerencia');
+
+        let htmlAdminBtn = esAutorizado ? 
             `<button onclick="abrirModalAnuncioSeguro()" style="background:#0284c7; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">📢 Publicar Nuevo Anuncio</button>` : '';
 
-        let htmlAnuncios = Array.isArray(anuncios) ? anuncios.map(a => `
+        let htmlAnuncios = todosLosAnuncios.map(a => `
             <div style="background:white; border-left:4px solid #0284c7; padding:10px 15px; margin-bottom:10px; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                     <strong style="color:#0f172a; font-size:14px;">📌 ${a.autor || 'Administración'}</strong>
-                    <span style="color:#64748b; font-size:11px;">${a.fecha || ''}</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="color:#64748b; font-size:11px;">${a.fecha || ''}</span>
+                        ${esAutorizado ? `
+                            <button onclick="editarAnuncioSeguro('${a.id}')" style="background:#0284c7; color:white; border:none; padding:2px 6px; border-radius:3px; cursor:pointer; font-size:11px;" title="Editar anuncio">✏️</button>
+                            <button onclick="eliminarAnuncioSeguro('${a.id}')" style="background:#dc2626; color:white; border:none; padding:2px 6px; border-radius:3px; cursor:pointer; font-size:11px;" title="Eliminar anuncio">🗑️</button>
+                        ` : ''}
+                    </div>
                 </div>
                 <p style="color:#334155; font-size:13px; margin:0; line-height:1.4;">${a.texto || ''}</p>
             </div>
-        `).join('') : '';
+        `).join('');
 
         contenedorTablon.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -182,6 +191,47 @@ function abrirModalAnuncioSeguro() {
         }
     })
     .catch(err => alert('Error de red al publicar.'));
+}
+
+async function editarAnuncioSeguro(id) {
+    const anuncio = todosLosAnuncios.find(a => a.id == id);
+    const textoActual = anuncio ? anuncio.texto : '';
+    const nuevoTexto = prompt('Editar el contenido del anuncio:', textoActual);
+    if (nuevoTexto !== null && nuevoTexto.trim() !== '' && nuevoTexto.trim() !== textoActual) {
+        try {
+            const res = await fetch(`/api/anuncios/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ texto: nuevoTexto.trim() })
+            });
+            const data = await res.json();
+            if (data.success || res.ok) {
+                alert('Anuncio actualizado.');
+                cargarAnunciosSeguro();
+            } else {
+                alert('Error al actualizar el anuncio.');
+            }
+        } catch (err) {
+            alert('Error de red al editar el anuncio.');
+        }
+    }
+}
+
+async function eliminarAnuncioSeguro(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar este anuncio?')) {
+        try {
+            const res = await fetch(`/api/anuncios/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success || res.ok) {
+                alert('Anuncio eliminado.');
+                cargarAnunciosSeguro();
+            } else {
+                alert('Error al eliminar anuncio.');
+            }
+        } catch (err) {
+            alert('Error de red al eliminar el anuncio.');
+        }
+    }
 }
 
 function renderizarDirectorioActual() {
