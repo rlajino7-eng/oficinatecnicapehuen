@@ -189,12 +189,39 @@ app.post('/api/chat', async (req, res) => {
 
 // --- Tablón de Anuncios ---
 app.get('/api/anuncios', (req, res) => res.json(anunciosHistorial));
+
 app.post('/api/anuncios', async (req, res) => {
     const nuevoAnuncio = { id: Date.now(), ...req.body, fecha: new Date().toLocaleDateString('es-CL') };
     anunciosHistorial.unshift(nuevoAnuncio);
     if(anunciosHistorial.length > 20) anunciosHistorial.pop();
     await guardarAnunciosEnDrive();
     res.json({ success: true });
+});
+
+// NUEVAS RUTAS AÑADIDAS PARA EDITAR Y ELIMINAR ANUNCIOS SIN ERRORES
+app.put('/api/anuncios/:id', async (req, res) => {
+    try {
+        const anuncio = anunciosHistorial.find(a => a.id == req.params.id);
+        if (anuncio) {
+            if (req.body.texto) anuncio.texto = req.body.texto;
+            await guardarAnunciosEnDrive();
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ success: false, error: 'Anuncio no encontrado' });
+        }
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+app.delete('/api/anuncios/:id', async (req, res) => {
+    try {
+        anunciosHistorial = anunciosHistorial.filter(a => a.id != req.params.id);
+        await guardarAnunciosEnDrive();
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
 });
 
 // --- Autenticación y Usuarios ---
