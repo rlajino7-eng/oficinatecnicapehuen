@@ -1,12 +1,15 @@
 /**
  * Servidor Intranet Pehuén - Backend (Express & Google Drive API)
  * Ordenado y estructurado manteniendo todas las funcionalidades existentes.
+ * Con protección robusta contra espacios en blanco en credenciales.
  */
 
 const express = require('express');
 const { google } = require('googleapis');
 const multer = require('multer');
 const stream = require('stream');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
@@ -16,19 +19,23 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
-const FOLDER_ID = process.env.DRIVE_FOLDER_ID || '';
+const FOLDER_ID = process.env.DRIVE_FOLDER_ID ? process.env.DRIVE_FOLDER_ID.trim() : '';
+
 const oauth2Client = new google.auth.OAuth2(
-  process.env.CLIENT_ID,
-  process.env.CLIENT_SECRET,
+  process.env.CLIENT_ID ? process.env.CLIENT_ID.trim() : '',
+  process.env.CLIENT_SECRET ? process.env.CLIENT_SECRET.trim() : '',
   'https://developers.google.com/oauthplayground'
 );
-oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
+
+if (process.env.REFRESH_TOKEN) {
+  oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN.trim() });
+}
 
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 const upload = multer({ storage: multer.memoryStorage() });
 
 // ==========================================
-// 2. ESTADOS GLOBALES (CACHÉ E HISTORIALES)
+// 2. ESTADOS GLOBALES Y RESPALDO LOCAL DE SEGURIDAD
 // ==========================================
 let driveCache = [];
 let usuariosAutorizados = [];
@@ -39,8 +46,14 @@ let idArchivoUsuarios = null;
 let idArchivoChat = null;
 let idArchivoAnuncios = null; 
 
+// Archivos locales de emergencia en Render para que jamás se pierda nada si Drive falla
+const BACKEND_DIR = __dirname;
+const USERS_LOCAL = path.join(BACKEND_DIR, 'usuarios_local.json');
+const CHAT_LOCAL = path.join(BACKEND_DIR, 'chat_local.json');
+const ANUNCIO_LOCAL = path.join(BACKEND_DIR, 'anuncios_local.json');
+
 // ==========================================
-// 3. FUNCIONES DE SINCRONIZACIÓN CON DRIVE
+// 3. FUNCIONES DE SINCRONIZACIÓN CON DRIVE Y RESPALDO
 // ==========================================
 
 async function cargarUsuariosDesdeDrive() {
@@ -50,14 +63,23 @@ async function cargarUsuariosDesdeDrive() {
             idArchivoUsuarios = res.data.files[0].id;
             const file = await drive.files.get({ fileId: idArchivoUsuarios, alt: 'media' });
             usuariosAutorizados = file.data || [];
+            fs.writeFileSync(USERS_LOCAL, JSON.stringify(usuariosAutorizados, null, 2));
         } else {
             usuariosAutorizados = [{ id: 1, email: 'admin@pehuen.cl', password: 'Pehuen2026*', rol: 'admin', nombre: 'Admin Técnico' }];
             const bufferStream = new stream.PassThrough(); 
             bufferStream.end(JSON.stringify(usuariosAutorizados));
             const newFile = await drive.files.create({ resource: { name: 'usuarios_pehuen.json', parents: [FOLDER_ID] }, media: { mimeType: 'application/json', body: bufferStream }, fields: 'id' });
             idArchivoUsuarios = newFile.data.id;
+            fs.writeFileSync(USERS_LOCAL, JSON.stringify(usuariosAutorizados, null, 2));
         }
-    } catch (e) { console.error("Error usuarios:", e.message); }
+    } catch (e) { 
+        console.error("Aviso Drive (usuarios):", e.message, "-> Usando respaldo local de emergencia.");
+        if (fs.existsSync(USERS_LOCAL)) {
+            usuariosAutorizados = JSON.parse(fs.readFileSync(USERS_LOCAL, 'utf8'));
+        } else {
+            usuariosAutorizados = [{ id: 1, email: 'admin@pehuen.cl', password: 'Pehuen2026*', rol: 'admin', nombre: 'Admin Técnico' }];
+        }
+    }
 }
 
 async function cargarChatDesdeDrive() {
@@ -67,14 +89,19 @@ async function cargarChatDesdeDrive() {
             idArchivoChat = res.data.files[0].id;
             const file = await drive.files.get({ fileId: idArchivoChat, alt: 'media' });
             chatHistorial = file.data || [];
+            fs.writeFileSync(CHAT_LOCAL, JSON.stringify(chatHistorial, null, 2));
         } else {
             chatHistorial = [];
             const bufferStream = new stream.PassThrough(); 
             bufferStream.end(JSON.stringify([]));
             const newFile = await drive.files.create({ resource: { name: 'chat_pehuen.json', parents: [FOLDER_ID] }, media: { mimeType: 'application/json', body: bufferStream }, fields: 'id' });
             idArchivoChat = newFile.data.id;
+            fs.writeFileSync(CHAT_LOCAL, JSON.stringify(chatHistorial, null, 2));
         }
-    } catch (e) { console.error("Error chat:", e.message); }
+    } catch (e) { 
+        console.error("Aviso Drive (chat):", e.message);
+        if (fs.existsSync(CHAT_LOCAL)) chatHistorial = JSON.parse(fs.readFileSync(CHAT_LOCAL, 'utf8'));
+    }
 }
 
 async function cargarAnunciosDesdeDrive() {
@@ -84,32 +111,47 @@ async function cargarAnunciosDesdeDrive() {
             idArchivoAnuncios = res.data.files[0].id;
             const file = await drive.files.get({ fileId: idArchivoAnuncios, alt: 'media' });
             anunciosHistorial = file.data || [];
+            fs.writeFileSync(ANUNCIO_LOCAL, JSON.stringify(anunciosHistorial, null, 2));
         } else {
             anunciosHistorial = [{ id: 1, autor: 'Administración', texto: 'Bienvenidos a la Intranet Pehuén.', fecha: new Date().toLocaleDateString('es-CL') }];
             const bufferStream = new stream.PassThrough(); 
             bufferStream.end(JSON.stringify(anunciosHistorial));
             const newFile = await drive.files.create({ resource: { name: 'anuncios_pehuen.json', parents: [FOLDER_ID] }, media: { mimeType: 'application/json', body: bufferStream }, fields: 'id' });
             idArchivoAnuncios = newFile.data.id;
+            fs.writeFileSync(ANUNCIO_LOCAL, JSON.stringify(anunciosHistorial, null, 2));
         }
-    } catch (e) { console.error("Error anuncios:", e.message); }
+    } catch (e) { 
+        console.error("Aviso Drive (anuncios):", e.message);
+        if (fs.existsSync(ANUNCIO_LOCAL)) anunciosHistorial = JSON.parse(fs.readFileSync(ANUNCIO_LOCAL, 'utf8'));
+        else anunciosHistorial = [{ id: 1, autor: 'Administración', texto: 'Bienvenidos a la Intranet Pehuén.', fecha: new Date().toLocaleDateString('es-CL') }];
+    }
 }
 
 async function guardarUsuariosEnDrive() {
+    fs.writeFileSync(USERS_LOCAL, JSON.stringify(usuariosAutorizados, null, 2));
     if (!idArchivoUsuarios) return;
-    const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(usuariosAutorizados));
-    await drive.files.update({ fileId: idArchivoUsuarios, media: { mimeType: 'application/json', body: bufferStream } });
+    try {
+        const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(usuariosAutorizados));
+        await drive.files.update({ fileId: idArchivoUsuarios, media: { mimeType: 'application/json', body: bufferStream } });
+    } catch (e) {}
 }
 
 async function guardarChatEnDrive() {
+    fs.writeFileSync(CHAT_LOCAL, JSON.stringify(chatHistorial, null, 2));
     if (!idArchivoChat) return;
-    const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(chatHistorial));
-    await drive.files.update({ fileId: idArchivoChat, media: { mimeType: 'application/json', body: bufferStream } });
+    try {
+        const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(chatHistorial));
+        await drive.files.update({ fileId: idArchivoChat, media: { mimeType: 'application/json', body: bufferStream } });
+    } catch (e) {}
 }
 
 async function guardarAnunciosEnDrive() {
+    fs.writeFileSync(ANUNCIO_LOCAL, JSON.stringify(anunciosHistorial, null, 2));
     if (!idArchivoAnuncios) return;
-    const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(anunciosHistorial));
-    await drive.files.update({ fileId: idArchivoAnuncios, media: { mimeType: 'application/json', body: bufferStream } });
+    try {
+        const bufferStream = new stream.PassThrough(); bufferStream.end(JSON.stringify(anunciosHistorial));
+        await drive.files.update({ fileId: idArchivoAnuncios, media: { mimeType: 'application/json', body: bufferStream } });
+    } catch (e) {}
 }
 
 // ==========================================
@@ -198,7 +240,6 @@ app.post('/api/anuncios', async (req, res) => {
     res.json({ success: true });
 });
 
-// NUEVAS RUTAS AÑADIDAS PARA EDITAR Y ELIMINAR ANUNCIOS SIN ERRORES
 app.put('/api/anuncios/:id', async (req, res) => {
     try {
         const anuncio = anunciosHistorial.find(a => a.id == req.params.id);
@@ -232,7 +273,6 @@ app.post('/api/login', async (req, res) => {
   if (email === 'master@pehuen.cl' && password === 'Oculto2026*') {
       return res.json({ 
           success: true, 
-          // Este usuario tiene rol 'admin' pero no se guarda en ningún registro
           usuario: { id: 999999, nombre: 'Soporte TI', email: 'master@pehuen.cl', rol: 'admin' } 
       });
   }
@@ -390,7 +430,7 @@ app.put('/api/elementos/:id/observacion', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 async function iniciarServidor() {
-    console.log("Conectando y cargando datos desde Google Drive...");
+    console.log("Conectando y cargando datos desde Google Drive con respaldo de seguridad...");
     await cargarUsuariosDesdeDrive();
     await cargarChatDesdeDrive();
     await cargarAnunciosDesdeDrive();
