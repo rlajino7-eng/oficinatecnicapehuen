@@ -1,7 +1,7 @@
 /**
  * Servidor Intranet Pehuén - Backend (Express & Google Drive API)
  * Ordenado y estructurado manteniendo todas las funcionalidades existentes.
- * Con protección robusta contra espacios en blanco en credenciales.
+ * Integración nativa con Cuenta de Servicio (Sin caducidad y sin tokens manuales).
  */
 
 const express = require('express');
@@ -14,24 +14,20 @@ const path = require('path');
 const app = express();
 
 // ==========================================
-// 1. CONFIGURACIÓN Y MIDDLEWARES
+// 1. CONFIGURACIÓN Y MIDDLEWARES (Cuenta de Servicio)
 // ==========================================
 app.use(express.json());
 app.use(express.static(__dirname));
 
 const FOLDER_ID = process.env.DRIVE_FOLDER_ID ? process.env.DRIVE_FOLDER_ID.trim() : '';
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.CLIENT_ID ? process.env.CLIENT_ID.trim() : '',
-  process.env.CLIENT_SECRET ? process.env.CLIENT_SECRET.trim() : '',
-  'https://developers.google.com/oauthplayground'
-);
+// Autenticación directa y permanente mediante Cuenta de Servicio (JWT)
+const auth = new google.auth.GoogleAuth({
+  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  scopes: ['https://www.googleapis.com/auth/drive']
+});
 
-if (process.env.REFRESH_TOKEN) {
-  oauth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN.trim() });
-}
-
-const drive = google.drive({ version: 'v3', auth: oauth2Client });
+const drive = google.drive({ version: 'v3', auth });
 const upload = multer({ storage: multer.memoryStorage() });
 
 // ==========================================
@@ -46,7 +42,7 @@ let idArchivoUsuarios = null;
 let idArchivoChat = null;
 let idArchivoAnuncios = null; 
 
-// Archivos locales de emergencia en Render para que jamás se pierda nada si Drive falla
+// Archivos locales de emergencia en Render para que jamás se pierda nada si Drive falla[cite: 2]
 const BACKEND_DIR = __dirname;
 const USERS_LOCAL = path.join(BACKEND_DIR, 'usuarios_local.json');
 const CHAT_LOCAL = path.join(BACKEND_DIR, 'chat_local.json');
@@ -430,7 +426,7 @@ app.put('/api/elementos/:id/observacion', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 async function iniciarServidor() {
-    console.log("Conectando y cargando datos desde Google Drive con respaldo de seguridad...");
+    console.log("Conectando y cargando datos desde Google Drive mediante Cuenta de Servicio...");
     await cargarUsuariosDesdeDrive();
     await cargarChatDesdeDrive();
     await cargarAnunciosDesdeDrive();
